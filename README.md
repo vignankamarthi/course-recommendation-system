@@ -13,15 +13,15 @@ An AI‑powered Course Recommendation System tailored for the Northeastern Unive
 
 ### AI Engineering Pipeline
 
-![AI Engineering Pipeline](docs/flow_diagrams/AI%20Engineering%20Pipeline.png)
+![AI Engineering Pipeline](docs/flow_diagrams/AI_Engineering_Pipeline.png)
 
 ### Content‑Based Recommendation Agent
 
-![Content‑Based Recommendation Agent](docs/flow_diagrams/Content%20Agent%20Flow.png)
+![Content‑Based Recommendation Agent](docs/flow_diagrams/Content_Agent_Flow.png)
 
 ### Collaborative Filtering Based Recommendation Agent
 
-![Collaborative Filtering‑Based Recommendation Agent](docs/flow_diagrams/Collaborative%20Filtering%20Agent%20Flow.jpg)
+![Collaborative Filtering‑Based Recommendation Agent](docs/flow_diagrams/Collaborative_Filtering_Agent_Flow.jpg)
 
 ## License
 

@@ -2,30 +2,11 @@
 import os
 import pandas as pd
 import cohere
-# LangChain core
-from langchain.schema import Document
-from langchain.chains import RetrievalQA
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.document_loaders import UnstructuredFileLoader, DirectoryLoader, CSVLoader
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.tools import tool
-from langchain.schema.runnable import RunnablePassthrough
-
-# LangChain provider integrations
-from langchain_openai import OpenAI
 from langchain_cohere import ChatCohere
-
-# LangChain-Community extensions
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS as CommunityFAISS
-
-# LangGraph
-import langgraph
 from langgraph.graph import StateGraph
 from config import cohere_api_key
 from neo4j_connector import Neo4jConnector
-from config import DATA_DIR, VECTOR_DB, IMPEL_CSV, PAPERS_DIR
+from config import DATA_DIR
 
 
 # TODO: Need better docstring and comments throughout.

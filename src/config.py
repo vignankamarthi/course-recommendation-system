@@ -1,4 +1,5 @@
 import os
+import pandas as pd
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -27,8 +28,7 @@ COURSE_VS = FAISS.from_documents(
         Document(
             page_content=f"Course Title: {r['Courses']}\nModule: {r['Modules']}\nSummary: {r['Summary']}",
             metadata={"source": "impel"}
-        ) for r in __import__('pandas').read_excel(IMPEL_CSV).to_dict(orient='records')
+        ) for r in pd.read_excel(IMPEL_CSV).to_dict(orient='records')
     ],
-    TODO: Import Pandas directly in the config file
     EMBED_MODEL
 )

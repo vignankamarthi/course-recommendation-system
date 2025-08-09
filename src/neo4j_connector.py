@@ -2,7 +2,6 @@ import cohere
 from neo4j import GraphDatabase
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
-import pandas as pd
 from config import neo4j_uri, neo4j_user, neo4j_password
 from config import cohere_api_key
 

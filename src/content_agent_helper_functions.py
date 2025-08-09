@@ -2,19 +2,7 @@ from config import SPLITTER
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.schema import Document
 import os
-from typing import List, Dict
-
-def load_impel_courses(path: str) -> List[Document]:
-    df = __import__('pandas').read_excel(path)
-    docs = []
-    for _, r in df.iterrows():
-        content = (
-            f"Course Title: {r['Courses']}\n"
-            f"Module: {r['Modules']}\n"
-            f"Summary: {r['Summary']}"
-        )
-        docs.append(Document(page_content=content, metadata={"source": "impel"}))
-    return docs
+from typing import List
 
 def load_research_papers(path: str) -> List[Document]:
     docs = []

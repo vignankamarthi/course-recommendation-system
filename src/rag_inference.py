@@ -1,38 +1,35 @@
+#TODO: WAYYYYY TOOO MANY UNUSED IMPORTS HOLY
+
+#TODO: This file is misleadingly named - it's not actually performing RAG (Retrieval-Augmented Generation).
+# Currently just a pass-through wrapper to RecommendationSystem. The actual RAG logic lives in:
+# - content_agent.py: FAISS vector retrieval + RetrievalQA chains
+# - recommender_langgraph.py: Prompt augmentation with course data
+#
+# REFACTOR PLAN - Transform this into a centralized RAG tool:
+# 1. Convert this file into a proper RAG tool that agents can call
+# 2. Extract and centralize all RAG operations here:
+#    - FAISS vector search from content_agent.py
+#    - Paper retrieval and summarization from content_agent.py
+#    - Course data augmentation from recommender_langgraph.py
+# 3. Implement as a @tool decorated function that agents can invoke:
+#    @tool
+#    def rag_course_recommendations(query, user_context):
+#        # Retrieve relevant courses from FAISS
+#        # Retrieve related papers
+#        # Augment prompt with context
+#        # Generate recommendations via LLM
+#        return structured_recommendations
+# 4. Agents become lightweight routers that choose tools (RAG, web search, DB lookup)
+#    rather than implementing retrieval logic themselves
+#
+# BENEFITS:
+# - Single source of truth for all RAG operations (SRP)
+# - Agents focus on orchestration, not implementation
+# - Easy to test, modify, and extend RAG pipeline
+# - Clear separation: Agents = decision makers, Tools = executors (better for error handling)
+
 # ### RAG Inference
-import os
-import re
-import requests
-import numpy as np
-import pandas as pd
-import fitz
-import docx2txt
-import cohere
-# LangChain core
-from langchain.schema import Document
-# LangChain core
-from langchain.schema import Document
-from langchain.chains import RetrievalQA
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.document_loaders import UnstructuredFileLoader, DirectoryLoader, CSVLoader
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.tools import tool
-from langchain.schema.runnable import RunnablePassthrough
-
-# LangChain provider integrations
-from langchain_openai import OpenAI
-from langchain_cohere import ChatCohere
-
-# LangChain-Community extensions
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS as CommunityFAISS
-
-# LangGraph
-import langgraph
-from langgraph.graph import StateGraph
 from recommender_langgraph import RecommendationSystem
-from config import DATA_DIR, IMPEL_CSV, PAPERS_DIR, VECTOR_DB, EMBED_MODEL, cohere_api_key
-from helper_functions import load_impel_courses
 
 def run_rag_inference(user_id, education, age_group, profession, user_query, uploaded_files):
     recommender = RecommendationSystem()

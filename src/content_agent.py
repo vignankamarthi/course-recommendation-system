@@ -12,9 +12,11 @@ from config import COURSE_VS, PAPERS_DIR, EMBED_MODEL, tavily_api_key
 from content_agent_tools import web_search
 from content_agent_helper_functions import load_research_papers
 
+# TODO: Add better comments and docstrings
+
 class AgenticRAG:
     def __init__(self, cohere_key: str):
-        # Initialize LLM and paper retriever
+        # Initialize LLM and paper retrieverlaslty what are the three
         self.llm = ChatCohere(
             cohere_api_key=cohere_key,
             model="command-r",
@@ -26,6 +28,7 @@ class AgenticRAG:
         )
 
     def classify_query(self, query: str) -> Dict[str, Any]:
+        # TODOL: Maybe improve initiliation prompt?
         prompt = (
             f"You are a parsing assistant. Given the user query:\n  '{query}'\n"
             "Return ONLY a JSON object with keys:\n"
@@ -91,6 +94,7 @@ class AgenticRAG:
                 f"- {r['title']}: {r.get('snippet','')}" if isinstance(r, dict) else f"- {r}"
                 for r in results
             )
+            # TODO: Improve prompt to be stronger?
             trend_prompt = (
                 f"You are an industry analyst. User query: '{query}'.\n"
                 "Based only on these search results (title and snippet):\n"
@@ -109,6 +113,7 @@ class AgenticRAG:
                 for r in results
             )
             job_prompt = (
+                # TODO: Improve prompt to be more specific?
                 f"You are a career advisor. User query: '{query}'.\n"
                 "Based only on these search results (title and snippet):\n"
                 f"{context}\n\n"
@@ -125,6 +130,7 @@ class AgenticRAG:
 
         # Final assembly
         assemble_prompt = (
+            #TODO: Improve this prompt to be more specific and clear, reducing incorrect outputs
             "Combine these sections exactly, preserving titles and bullets. "
             "Do NOT add intros or follow-ups and DO NOT make any content changes to the respective sections"
             "(If there are summaries for each research paper recommendation if any, do not exclude them. "
@@ -138,7 +144,7 @@ class AgenticRAG:
     def _build_course_section(self, resume: str, query: str) -> str:
         q = resume + '\n' + query
         recs = COURSE_VS.similarity_search(q, k=3)
-        lines = ['## 🎓 Top 3 IMPEL Courses']
+        lines = ['## 🎓 Top 3 IMPEL Course Reccommendations for You']
         for i, d in enumerate(recs, start=1):
             content = d.page_content or ''
             parts = content.splitlines()
@@ -160,7 +166,7 @@ class AgenticRAG:
         res = qa.invoke({'query': f"Resume:\n{resume}\nQuery:\n{query}"})
 
         seen = set()
-        papers = ['## 📄 Research Papers']
+        papers = ['## 📄 Related Research Papers']
         for doc in res['source_documents']:
             fn = doc.metadata.get('filename', 'paper.pdf')
             if fn in seen:

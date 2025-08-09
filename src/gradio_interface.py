@@ -6,6 +6,9 @@ from recommender_langgraph import RecommendationSystem
 from content_agent import AgenticRAG
 from config import cohere_api_key
 
+#TODO: Comments needed for all funtions here. FOLLOW NUMPY  
+
+#TODO: SRC structure is not enough. We need to seperate the src (agentic flow), UI, and DATA folders for better modulariizaiontion and maintainability, as well as extensibility. 
 content_agent = AgenticRAG(cohere_key = cohere_api_key)
 
 def process_recommendations(user_id, education, age_group, profession, user_query, uploaded_file):

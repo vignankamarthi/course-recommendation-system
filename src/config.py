@@ -29,5 +29,6 @@ COURSE_VS = FAISS.from_documents(
             metadata={"source": "impel"}
         ) for r in __import__('pandas').read_excel(IMPEL_CSV).to_dict(orient='records')
     ],
+    TODO: Import Pandas directly in the config file
     EMBED_MODEL
 )

@@ -27,6 +27,10 @@ from config import cohere_api_key
 from neo4j_connector import Neo4jConnector
 from config import DATA_DIR, VECTOR_DB, IMPEL_CSV, PAPERS_DIR
 
+
+# TODO: Need better docstring and comments throughout.
+
+# TODO: Need better strucutre, as we have three flows: irrelevant, database_lookup, and recommendation, and that is not clear. 
 class RecommendationSystem:
     def __init__(self):
         self.workflow = StateGraph(dict)
@@ -36,6 +40,8 @@ class RecommendationSystem:
             os.path.join(DATA_DIR, "Course_Module_New.xlsx")
         )
 
+
+# TODO: Figure out how to acheive same eng goal with MySQL transition
     def load_impel_courses_and_modules(self, filepath):
         df = pd.read_excel(filepath)
         grouped = df.groupby("Courses")
@@ -49,6 +55,7 @@ class RecommendationSystem:
             formatted += "\n"
         return formatted.strip()
 
+# TODO: Explore improving this initilization prompt
     def classify_intent(self, query):
         prompt = f"""
 You are an intent classification assistant. Categorize the user's query as one of the following:
@@ -58,7 +65,7 @@ You are an intent classification assistant. Categorize the user's query as one o
 
 
 User query: "{query}"
-Only reply with one word: one of "database_lookup", "recommendation", or "irrelevant".
+Only reply with one of the following words: "database_lookup", "recommendation", or "irrelevant".
 """
         response = self.cohere_client.generate(
             model="command-r-plus",
@@ -73,6 +80,7 @@ Only reply with one word: one of "database_lookup", "recommendation", or "irrele
             state["education"], state["age_group"], state["profession"], state["query"]
         )
         state["user_vector"] = vector
+        #TODO: Demogrpahics is misleading THORUGHOUT THE CODE BASE, from general understanding, demogrpahics means ethinic, socioeconomic, etc., but here, demogrpahics is just education, age_group, and profession. We need to be clear on that.
         state["demographics"] = {
             "education": state["education"],
             "age_group": state["age_group"],

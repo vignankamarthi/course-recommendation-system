@@ -9,6 +9,7 @@ langchain-community
 langchain-huggingface
 langchain-openai
 langgraph
+mysql-connector-python
 neo4j
 networkx
 numpy
@@ -16,6 +17,7 @@ openai
 pandas
 pymupdf
 pypdf
+python-dotenv
 sentence-transformers
 scikit-learn
 tabulate

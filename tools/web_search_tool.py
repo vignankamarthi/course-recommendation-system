@@ -7,20 +7,52 @@ from utils.exceptions import APIRequestError, APIKeyError
 
 def web_search(query: str, api_key: str, top_k: int = 5) -> List[Dict[str, Any]]:
     """
-    Performs web search using Tavily API for real-time information.
-    Used for current job market trends, tools, and industry insights.
+    Perform web search using Tavily API for real-time market information.
     
-    Args:
-        query: Search query string
-        api_key: Tavily API key
-        top_k: Number of results to return (default 5)
+    Executes web searches for trending skills, job market insights, and career-related
+    topics using Tavily's search API. Provides comprehensive error handling, input
+    validation, and structured result formatting for downstream analysis.
     
-    Returns:
-        List of search results with title, snippet, and URL
+    Parameters
+    ----------
+    query : str
+        Search query string for web information retrieval
+        Must be non-empty and contain meaningful search terms
+    api_key : str
+        Tavily API key for authentication and service access
+        Must be valid and have sufficient API quota
+    top_k : int, optional
+        Maximum number of search results to return (default: 5)
+        Must be positive integer, typically 3-10 for optimal performance
         
-    Raises:
-        APIKeyError: If API key is invalid or missing
-        APIRequestError: If search request fails
+    Returns
+    -------
+    list of dict
+        List of search result dictionaries with keys:
+        - 'title': str, webpage title
+        - 'snippet': str, content preview/summary  
+        - 'url': str, source webpage URL
+        - 'published_date': str, publication date (if available)
+        Returns empty list if no results found or API errors occur
+        
+    Raises
+    ------
+    APIRequestError
+        If Tavily API returns errors or invalid responses
+    APIKeyError
+        If API key is invalid or quota exceeded
+    ValueError
+        If input parameters are invalid or empty
+        
+    Examples
+    --------
+    >>> results = web_search(
+    ...     query="data science skills 2024 trends",
+    ...     api_key="your_tavily_api_key",
+    ...     top_k=3
+    ... )
+    >>> print(len(results))  # Number of search results
+    >>> print(results[0]['title'])  # First result title
     """
     SystemLogger.debug("Performing web search with Tavily", {
         'query_preview': query[:100] if query else 'empty',

@@ -8,17 +8,40 @@ from utils.exceptions import FileProcessingError, ConfigurationError
 
 def load_research_papers(path: str) -> List[Document]:
     """
-    Load and split research papers from PDF files in specified directory.
+    Load and process research papers from PDF files for vector storage.
     
-    Args:
-        path: Directory path containing PDF files
+    Recursively scans directory for PDF files, loads content using PyPDFLoader,
+    and splits documents into chunks for efficient vector search. Provides
+    comprehensive error handling for file access and processing issues.
     
-    Returns:
-        List of Document objects with chunked content
+    Parameters
+    ----------
+    path : str
+        Directory path containing PDF research papers
+        Must be valid directory with read permissions
+    
+    Returns
+    -------
+    list of Document
+        List of LangChain Document objects with chunked content
+        Each document includes:
+        - page_content: str, processed text content
+        - metadata: dict, file information and chunk details
         
-    Raises:
-        FileProcessingError: If directory access or PDF processing fails
-        ConfigurationError: If text splitter is not configured
+    Raises
+    ------
+    FileProcessingError
+        If directory access fails or PDF processing encounters errors
+    ConfigurationError
+        If text splitter is not properly configured
+    OSError
+        If file system operations fail (permissions, disk space)
+        
+    Examples
+    --------
+    >>> papers = load_research_papers("data/papers")
+    >>> print(f"Loaded {len(papers)} document chunks")
+    >>> print(papers[0].metadata['source'])  # Source PDF filename
     """
     SystemLogger.info("Loading research papers from directory", {
         'path': path

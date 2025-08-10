@@ -11,10 +11,40 @@ from utils.exceptions import (
 
 def process_recommendations(user_id, education, age_group, profession, user_query, uploaded_file):
     """
-    Process user query through orchestrator and format UI response.
+    Process user query through orchestrator and format UI response for Gradio.
     
-    This function is purely for UI formatting - all business logic 
-    is handled by the RecommendationSystem orchestrator.
+    Handles the complete user interaction pipeline from input validation through
+    orchestrator execution to UI response formatting. Provides comprehensive
+    error handling and user feedback for the web interface.
+    
+    Parameters
+    ----------
+    user_id : str
+        Unique identifier for user session tracking
+    education : str
+        User's education level selection from UI radio buttons
+    age_group : str  
+        User's age range selection from UI radio buttons
+    profession : str
+        User's professional status from UI radio buttons
+    user_query : str
+        Natural language query input from user
+    uploaded_file : str or None
+        File path of uploaded resume/document (if any)
+        
+    Returns
+    -------
+    tuple of gradio.Update
+        Four-element tuple of Gradio update objects for UI components:
+        - execution_tag: Status message display
+        - cont_output: Content recommendations (hidden)
+        - collab_output: Main recommendations display
+        - similar_output: Similar user courses display
+        
+    Examples
+    --------
+    Used internally by Gradio interface for handling form submissions.
+    Returns properly formatted UI updates for success/error states.
     """
     SystemLogger.info("Processing user recommendation request through Gradio interface", {
         'user_id': user_id,
@@ -215,7 +245,38 @@ def process_recommendations(user_id, education, age_group, profession, user_quer
 
 
 def create_gradio_interface():
-    """Create and configure Gradio interface for the course recommendation system."""
+    """
+    Create and configure Gradio web interface for course recommendation system.
+    
+    Builds a comprehensive web interface with input validation, error handling,
+    and user feedback mechanisms. Provides interactive forms for user demographics,
+    query input, and file upload capabilities with real-time processing feedback.
+    
+    Returns
+    -------
+    None
+        Launches Gradio interface in debug mode on default port
+        
+    Raises
+    ------
+    UserInputValidationError
+        If interface creation or component setup fails
+        
+    Notes
+    -----
+    Interface includes:
+    - User demographic inputs (education, age, profession)
+    - Natural language query input with placeholder guidance
+    - Optional resume/document upload (PDF/DOCX support)
+    - Real-time processing status updates
+    - Formatted recommendation output display
+    - Error handling with user-friendly messages
+    
+    Examples
+    --------
+    >>> create_gradio_interface()
+    # Launches web interface accessible at http://localhost:7860
+    """
     SystemLogger.info("Creating Gradio interface for course recommendation system")
     
     try:

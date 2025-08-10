@@ -11,7 +11,34 @@ from utils.exceptions import (
 
 
 class CollaborativeAgent:
-    """Agent for collaborative filtering recommendations based on similar users."""
+    """
+    AI agent for collaborative filtering recommendations based on user similarity.
+    
+    Implements collaborative filtering algorithms to generate personalized course
+    recommendations by finding similar users and analyzing their learning patterns.
+    Integrates user demographics, learning history, and preference matching for
+    targeted educational suggestions.
+    
+    Attributes
+    ----------
+    neo4j : Neo4jConnector
+        Neo4j database connection for user graph operations
+    mysql : MySQLConnector
+        MySQL database connection for course catalog access  
+    cohere_client : cohere.Client
+        Cohere API client for recommendation text generation
+    impel_data : str
+        Formatted course and module data for recommendation context
+        
+    Raises
+    ------
+    ConfigurationError
+        If required API keys or database configurations are invalid
+    DatabaseConnectionError
+        If database connections cannot be established
+    AgentExecutionError
+        If agent initialization fails
+    """
     
     def __init__(self):
         SystemLogger.info("Initializing CollaborativeAgent")
@@ -246,7 +273,7 @@ class CollaborativeAgent:
             if not similar_users:
                 SystemLogger.info("No similar users found - using general recommendation approach")
                 response_prefix = "No similar users found. Here are some suggested IMPEL courses and modules:\\n\\n"
-                prompt = f\"\"\"
+                prompt = f"""
 You are a course recommendation assistant. Below are courses and their modules from the IMPEL database:
 {self.impel_data}
 User query: '{query}'
@@ -255,7 +282,7 @@ Format:
 **Course: <Course Name>**
 - <Module 1>
 - <Module 2>
-\"\"\"
+"""
             else:
                 SystemLogger.info("Similar users found - using collaborative filtering approach", {
                     'similar_users_count': len(similar_users)
@@ -281,7 +308,7 @@ Format:
                     )
                     similar_user_recs = []
                 
-                prompt = f\"\"\"
+                prompt = f"""
 You are a course recommendation assistant. Below are courses and their modules from the IMPEL database:
 {self.impel_data}
 A similar user was interested in: {similar_user_recs}
@@ -291,7 +318,7 @@ Format:
 **Course: <Course Name>**
 - <Module 1>
 - <Module 2>
-\"\"\"
+"""
 
         except Exception as e:
             SystemLogger.error(

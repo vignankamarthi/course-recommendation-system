@@ -20,6 +20,31 @@ from utils.exceptions import (
 # TODO: Add better comments and docstrings
 
 class ContentAgent:
+    """
+    AI agent for content-based recommendations and market analysis.
+    
+    Specializes in processing user queries about trending skills, job market 
+    insights, and content-based course recommendations. Integrates web search,
+    document processing, and research paper analysis to provide comprehensive
+    responses about career paths and skill development.
+    
+    Attributes
+    ----------
+    llm : ChatCohere
+        Cohere chat model for natural language processing
+    paper_vs : FAISS.as_retriever
+        Vector store retriever for research papers
+        
+    Raises
+    ------
+    ConfigurationError
+        If API keys or configuration parameters are invalid
+    FileProcessingError
+        If research paper loading fails
+    AgentExecutionError
+        If agent initialization fails
+    """
+    
     def __init__(self, cohere_key: str):
         SystemLogger.info("Initializing ContentAgent")
         
@@ -203,7 +228,48 @@ class ContentAgent:
 
     def run(self, query: str, uploaded_files: List[str] = []) -> str:
         """
-        Main ContentAgent execution method handling file processing, web search, and recommendations.
+        Execute comprehensive content analysis and recommendation generation.
+        
+        Processes user queries through multi-modal analysis including file processing,
+        web search for trending information, and research paper recommendations.
+        Handles intent classification and routes to appropriate content generation
+        workflows (trending skills, job information, course recommendations).
+        
+        Parameters
+        ----------
+        query : str
+            User's natural language query for content analysis
+        uploaded_files : list of str, optional
+            File paths for uploaded resumes/documents (default: empty list)
+            Supports PDF and DOCX formats for resume parsing
+            
+        Returns
+        -------
+        str
+            Formatted response containing relevant content sections:
+            - Trending skills analysis (if applicable)
+            - Job market information (if applicable) 
+            - Course recommendations with research papers (if applicable)
+            - Error message for irrelevant queries
+            
+        Raises
+        ------
+        AgentExecutionError
+            If query is empty or classification fails
+        FileProcessingError
+            If uploaded file processing encounters errors
+        APIRequestError
+            If external API calls (Cohere, Tavily) fail
+        VectorStoreError
+            If vector store operations fail
+            
+        Examples
+        --------
+        >>> agent = ContentAgent(cohere_key="your_key")
+        >>> result = agent.run(
+        ...     query="What are trending data science skills in 2024?",
+        ...     uploaded_files=["/path/to/resume.pdf"]
+        ... )
         """
         SystemLogger.info("ContentAgent executing main run method", {
             'query_preview': query[:100] if query else 'empty',

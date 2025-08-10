@@ -11,7 +11,33 @@ from utils.exceptions import (
 
 
 class DatabaseAgent:
-    """Agent for direct database queries and course catalog lookup."""
+    """
+    AI agent specialized in direct database queries and course catalog exploration.
+    
+    Handles user queries for specific IMPEL course and module information through
+    direct database lookups. Provides detailed course descriptions, module summaries,
+    and similar user enrollment patterns for educational guidance.
+    
+    Attributes
+    ----------
+    neo4j : Neo4jConnector
+        Neo4j database connection for user similarity and interactions
+    mysql : MySQLConnector  
+        MySQL database connection for course catalog data
+    cohere_client : cohere.Client
+        Cohere API client for natural language response generation
+    impel_data : str
+        Formatted string of course and module information from database
+        
+    Raises
+    ------
+    ConfigurationError
+        If required API keys or database configurations are invalid
+    DatabaseConnectionError
+        If database connections cannot be established
+    AgentExecutionError
+        If agent initialization fails
+    """
     
     def __init__(self):
         SystemLogger.info("Initializing DatabaseAgent")

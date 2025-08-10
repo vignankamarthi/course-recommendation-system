@@ -220,7 +220,30 @@ _mysql_connector = None
 _neo4j_connector = None
 
 def get_mysql_connection():
-    """Get singleton MySQL connector with connection pooling."""
+    """
+    Get singleton MySQL database connector with connection pooling.
+    
+    Provides thread-safe access to MySQL database through singleton pattern
+    with connection pooling for optimal performance. Creates new connector
+    instance on first call, returns existing instance on subsequent calls.
+    
+    Returns
+    -------
+    MySQLConnector
+        Configured MySQL connector instance with connection pooling
+        
+    Raises
+    ------
+    DatabaseConnectionError
+        If MySQL connection cannot be established or pool creation fails
+    ConfigurationError
+        If database configuration parameters are invalid
+        
+    Examples
+    --------
+    >>> mysql = get_mysql_connection()
+    >>> courses = mysql.get_courses()
+    """
     SystemLogger.debug("Acquiring MySQL connection singleton")
     
     global _mysql_connector
@@ -256,7 +279,30 @@ def get_mysql_connection():
     return _mysql_connector
 
 def get_neo4j_connection():
-    """Get singleton Neo4j connector."""
+    """
+    Get singleton Neo4j graph database connector.
+    
+    Provides thread-safe access to Neo4j graph database through singleton pattern.
+    Creates new connector instance on first call, returns existing instance on
+    subsequent calls. Used for user similarity analysis and interaction storage.
+    
+    Returns
+    -------
+    Neo4jConnector
+        Configured Neo4j connector instance with graph database access
+        
+    Raises
+    ------
+    DatabaseConnectionError
+        If Neo4j connection cannot be established
+    ConfigurationError
+        If Neo4j URI or authentication parameters are invalid
+        
+    Examples
+    --------
+    >>> neo4j = get_neo4j_connection()
+    >>> vector = neo4j.get_user_vector("Graduate", "26-40", "Professional", "query")
+    """
     SystemLogger.debug("Acquiring Neo4j connection singleton")
     
     global _neo4j_connector

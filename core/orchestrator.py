@@ -12,9 +12,39 @@ from utils.exceptions import (
 )
 
 
-# TODO: Need better docstring and comments throughout.
 class RecommendationSystem:
-    """Orchestrates different agents based on user query intent."""
+    """
+    Orchestrates different AI agents based on user query intent classification.
+    
+    This class serves as the main workflow orchestrator that routes user queries
+    to appropriate specialized agents (database, collaborative, or content) based
+    on intent classification. It manages the complete request lifecycle from
+    query processing to result storage.
+    
+    Attributes
+    ----------
+    workflow : StateGraph
+        LangGraph workflow for state management
+    neo4j : Neo4jConnector
+        Neo4j database connection for user interactions
+    cohere_client : cohere.Client
+        Cohere API client for LLM operations
+    database_agent : DatabaseAgent
+        Agent for direct database course lookups
+    collaborative_agent : CollaborativeAgent
+        Agent for collaborative filtering recommendations
+    content_agent : ContentAgent
+        Agent for content-based analysis and web search
+        
+    Raises
+    ------
+    ConfigurationError
+        If required API keys are not configured
+    DatabaseConnectionError
+        If database connections cannot be established
+    AgentExecutionError
+        If agent initialization fails
+    """
 
     def __init__(self):
         SystemLogger.info("Initializing RecommendationSystem orchestrator")
@@ -76,7 +106,34 @@ class RecommendationSystem:
 
     # TODO: Explore improving this initilization prompt
     def classify_intent(self, query):
-        """Classify user query intent using Cohere LLM."""
+        """
+        Classify user query intent using Cohere LLM for workflow routing.
+        
+        Analyzes the user query to determine which specialized agent should
+        handle the request. Classifications include database lookup, 
+        collaborative recommendations, content analysis, or irrelevant queries.
+        
+        Parameters
+        ----------
+        query : str
+            User input query to classify for intent determination
+            
+        Returns
+        -------
+        str
+            Intent classification, one of:
+            - 'database_lookup': For specific course/module exploration
+            - 'recommendation': For collaborative filtering recommendations  
+            - 'content_analysis': For trending skills and market insights
+            - 'irrelevant': For queries unrelated to education/data science
+            
+        Raises
+        ------
+        AgentExecutionError
+            If query is empty or intent classification fails
+        APIRequestError
+            If Cohere API returns invalid or empty response
+        """
         SystemLogger.debug("Classifying user query intent", {
             'query_preview': query[:100] if query else 'empty'
         })
@@ -577,7 +634,54 @@ Only reply with one of the following words: "database_lookup", "recommendation",
             raise WorkflowError(f"Failed to build content workflow: {e}")
 
     def handle_user_query(self, user_id, education, age_group, profession, query, uploaded_files=None):
-        """Main entry point for handling user queries through appropriate workflows."""
+        """
+        Main entry point for processing user queries through appropriate AI workflows.
+        
+        Orchestrates the complete user request lifecycle: intent classification,
+        workflow routing, agent execution, and result formatting. Handles all
+        error conditions gracefully and provides comprehensive logging.
+        
+        Parameters
+        ----------
+        user_id : str
+            Unique identifier for the user session
+        education : str
+            User's education level ('High School', 'Undergraduate', 'Graduate')
+        age_group : str
+            User's age range ('Under 18', '18-25', '26-40', '40+')
+        profession : str
+            User's professional status ('Student', 'Professional')
+        query : str
+            User's natural language query for course recommendations
+        uploaded_files : list of str, optional
+            File paths for uploaded resumes/documents (default: None)
+            
+        Returns
+        -------
+        tuple of (str, str or None)
+            - response: Formatted recommendation response text
+            - similar_courses: Similar user course enrollments or None
+            
+        Raises
+        ------
+        WorkflowError
+            If required fields are missing or workflow execution fails
+        APIRequestError
+            If external API calls (Cohere, Tavily) fail
+        AgentExecutionError
+            If agent initialization or execution fails
+            
+        Examples
+        --------
+        >>> system = RecommendationSystem()
+        >>> response, courses = system.handle_user_query(
+        ...     user_id="user123",
+        ...     education="Graduate", 
+        ...     age_group="26-40",
+        ...     profession="Professional",
+        ...     query="I want to become a data scientist"
+        ... )
+        """
         SystemLogger.info("Handling user query through orchestrator", {
             'user_id': user_id,
             'query_preview': query[:100] if query else 'empty',

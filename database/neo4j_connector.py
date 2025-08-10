@@ -20,8 +20,45 @@ except Exception as e:
     )
     raise APIRequestError(f"Failed to initialize Cohere client: {e}")
 
-#TODO: Structure and docstring is whack, needs better readability. WHole file is just adpdaters/wrappers for the agent to tulize neo4j as a vector database and store user interactions.
 class Neo4jConnector:
+    """
+    Neo4j graph database connector for user interactions and similarity analysis.
+    
+    Handles user profile storage, interaction logging, and similarity-based 
+    recommendations using Neo4j graph database. Integrates with Cohere embeddings
+    for vector-based user similarity calculations and collaborative filtering.
+    
+    Attributes
+    ----------
+    driver : neo4j.GraphDatabase.driver
+        Neo4j database driver for graph operations
+        
+    Methods
+    -------
+    get_user_vector(education, age_group, profession, query)
+        Generate user embedding vector using Cohere API
+    get_similar_users(user_vector)
+        Find similar users based on vector similarity
+    store_interaction(user_id, education, age_group, profession, user_query, response, user_vector)
+        Store user interaction and profile in graph database
+    get_enrolled_courses_from_similar_users(user_ids)
+        Retrieve course enrollments from similar users
+        
+    Raises
+    ------
+    DatabaseConnectionError
+        If Neo4j connection cannot be established
+    DatabaseQueryError
+        If graph database queries fail
+    APIRequestError
+        If Cohere embedding generation fails
+        
+    Examples
+    --------
+    >>> connector = Neo4jConnector()
+    >>> vector = connector.get_user_vector("Graduate", "26-40", "Professional", "ML query")
+    >>> similar_users = connector.get_similar_users(vector)
+    """
     def __init__(self):
         SystemLogger.info("Initializing Neo4j connection", {
             'uri': neo4j_uri, 'user': neo4j_user

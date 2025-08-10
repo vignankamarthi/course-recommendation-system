@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  # MySQL Database for course catalog
+  mysql:
+    image: mysql:8.0
+    container_name: course-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-course_recommendation}
+      MYSQL_USER: ${MYSQL_USER:-appuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-rootpassword}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ../database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ../data/course_catalog.sql:/docker-entrypoint-initdb.d/02-data.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+    networks:
+      - course_network
+
+  # Neo4j Database for user relationships and enrollments  
+  neo4j:
+    image: neo4j:5.15
+    container_name: course-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-neo4jpassword}
+      NEO4J_dbms_default__database: ${NEO4J_DATABASE:-coursegraph}
+      NEO4J_dbms_memory_heap_initial__size: 512M
+      NEO4J_dbms_memory_heap_max__size: 1G
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    networks:
+      - course_network
+
+  # Main application
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
+    container_name: course-app
+    environment:
+      # Database connections
+      MYSQL_HOST: mysql
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-course_recommendation}
+      MYSQL_USER: ${MYSQL_USER:-root}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-rootpassword}
+      MYSQL_POOL_SIZE: 5
+      
+      # Neo4j connection (local development)
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-neo4jpassword}
+      
+      # API Keys (loaded from .env)
+      COHERE_API_KEY: ${COHERE_API_KEY}
+      TAVILY_API_KEY: ${TAVILY_API_KEY}
+      
+      # Application settings
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DEBUG: ${DEBUG:-false}
+    ports:
+      - "7860:7860"  # Gradio interface
+    volumes:
+      # Mount source code for live editing
+      - ../agents:/app/agents
+      - ../core:/app/core
+      - ../database:/app/database
+      - ../tools:/app/tools
+      - ../utils:/app/utils
+      - ../app:/app/app
+      - ../data:/app/data
+      # Mount main application file
+      - ../app.py:/app/app.py
+      # Mount config files
+      - ../.env:/app/.env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      neo4j:
+        condition: service_started
+    networks:
+      - course_network
+
+
+# Named volumes for data persistence
+volumes:
+  mysql_data:
+    driver: local
+  neo4j_data:
+    driver: local
+  neo4j_logs:
+    driver: local
+
+# Custom network for service communication
+networks:
+  course_network:
+    driver: bridge

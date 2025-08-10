@@ -1,11 +1,10 @@
 # LangGraph Workflow
 import cohere
 from langgraph.graph import StateGraph
-from src.core.config import cohere_api_key
-from src.database.neo4j_connector import Neo4jConnector
-from src.agents.database_agent import DatabaseAgent
-from src.agents.collaborative_agent import CollaborativeAgent
-from src.agents.content_agent import ContentAgent
+from core.config import cohere_api_key, COHERE_GENERATE_MODEL, get_neo4j_connection
+from agents.database_agent import DatabaseAgent
+from agents.collaborative_agent import CollaborativeAgent
+from agents.content_agent import ContentAgent
 
 
 # TODO: Need better docstring and comments throughout.
@@ -14,7 +13,7 @@ class RecommendationSystem:
     
     def __init__(self):
         self.workflow = StateGraph(dict)
-        self.neo4j = Neo4jConnector()
+        self.neo4j = get_neo4j_connection()
         self.cohere_client = cohere.Client(cohere_api_key)
         self.database_agent = DatabaseAgent()
         self.collaborative_agent = CollaborativeAgent()
@@ -35,7 +34,7 @@ User query: "{query}"
 Only reply with one of the following words: "database_lookup", "recommendation", "content_analysis", or "irrelevant".
 """
         response = self.cohere_client.generate(
-            model="command-r-plus",
+            model=COHERE_GENERATE_MODEL,
             prompt=prompt,
             max_tokens=5,
             temperature=0
@@ -47,7 +46,7 @@ Only reply with one of the following words: "database_lookup", "recommendation",
             state["education"], state["age_group"], state["profession"], state["query"]
         )
         state["user_vector"] = vector
-        #TODO: Demogrpahics is misleading THORUGHOUT THE CODE BASE, from general understanding, demogrpahics means ethinic, socioeconomic, etc., but here, demogrpahics is just education, age_group, and profession. We need to be clear on that.
+        #TODO: Demographics is misleading THROUGHOUT THE CODE BASE, from general understanding, demographics means ethinic, socioeconomic, etc., but here, demogrpahics is just education, age_group, and profession. We need to be clear on that.
         state["demographics"] = {
             "education": state["education"],
             "age_group": state["age_group"],

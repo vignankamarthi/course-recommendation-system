@@ -1,7 +1,7 @@
 # Gradio interface 
 
 import gradio as gr
-from src.core.orchestrator import RecommendationSystem
+from core.orchestrator import RecommendationSystem
 #TODO: Comments needed for all funtions here. FOLLOW NUMPY
 
 def process_recommendations(user_id, education, age_group, profession, user_query, uploaded_file):

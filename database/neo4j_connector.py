@@ -2,13 +2,12 @@ import cohere
 from neo4j import GraphDatabase
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
-from config import neo4j_uri, neo4j_user, neo4j_password
-from config import cohere_api_key
+from core.config import neo4j_uri, neo4j_user, neo4j_password, cohere_api_key, COHERE_EMBED_MODEL
 
 co = cohere.Client(cohere_api_key)
-cohere_model = "embed-english-v3.0"
+cohere_model = COHERE_EMBED_MODEL
 
-#TODO: Structure and docstring is wahck, needs better readability. WHole file is just adpdaters/wrappers for the agent to tulize neo4j as a vector database and store user interactions.
+#TODO: Structure and docstring is whack, needs better readability. WHole file is just adpdaters/wrappers for the agent to tulize neo4j as a vector database and store user interactions.
 class Neo4jConnector:
     def __init__(self):
         self.driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))

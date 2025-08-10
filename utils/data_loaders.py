@@ -1,4 +1,4 @@
-from src.core.config import SPLITTER
+from core.config import SPLITTER
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.schema import Document
 import os

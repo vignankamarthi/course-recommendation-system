@@ -1,33 +1,48 @@
-import os
-import pandas as pd
 import cohere
-from src.core.config import cohere_api_key, DATA_DIR
-from src.database.neo4j_connector import Neo4jConnector
+from core.config import (
+    cohere_api_key, COHERE_GENERATE_MODEL,
+    get_mysql_connection, get_neo4j_connection
+)
 
 
 class CollaborativeAgent:
     """Agent for collaborative filtering recommendations based on similar users."""
     
     def __init__(self):
-        self.neo4j = Neo4jConnector()
+        self.neo4j = get_neo4j_connection()
+        self.mysql = get_mysql_connection()
         self.cohere_client = cohere.Client(cohere_api_key)
-        self.impel_data = self._load_impel_courses_and_modules(
-            os.path.join(DATA_DIR, "Course_Module_New.xlsx")
-        )
+        self.impel_data = self._load_impel_courses_and_modules()
     
-    def _load_impel_courses_and_modules(self, filepath):
-        """Load and format course data for recommendations."""
-        df = pd.read_excel(filepath)
-        grouped = df.groupby("Courses")
-        formatted = ""
-        for course, group in grouped:
-            formatted += f"**Course: {course}**\nModules:\n"
-            for _, row in group.iterrows():
-                module = row["Modules"].strip()
-                summary = row["Summary"].strip()
-                formatted += f"- {module}: {summary}\n"
-            formatted += "\n"
-        return formatted.strip()
+    def _load_impel_courses_and_modules(self):
+        """Load and format course data from MySQL for recommendations."""
+        try:
+            courses_data = self.mysql.get_courses()
+            
+            # Group by course name
+            courses_dict = {}
+            for row in courses_data:
+                course_name = row['course_name']
+                if course_name not in courses_dict:
+                    courses_dict[course_name] = []
+                courses_dict[course_name].append({
+                    'module': row['module_name'],
+                    'summary': row['module_summary']
+                })
+            
+            # Format for LLM
+            formatted = ""
+            for course_name, modules in courses_dict.items():
+                formatted += f"**Course: {course_name}**\nModules:\n"
+                for module_info in modules:
+                    formatted += f"- {module_info['module']}: {module_info['summary']}\n"
+                formatted += "\n"
+            
+            return formatted.strip()
+            
+        except Exception as e:
+            print(f"Warning: Could not load courses from MySQL: {e}")
+            return "No course data available. Please check database connection."
 
     def generate_recommendations(self, query: str, user_context: dict) -> dict:
         """
@@ -74,7 +89,7 @@ Format:
 
         # Generate recommendation using LLM
         llm_response = self.cohere_client.generate(
-            model='command-r-plus',
+            model=COHERE_GENERATE_MODEL,
             prompt=prompt,
             max_tokens=400
         )

@@ -1,0 +1,45 @@
+# Git and version control
+.git
+.gitignore
+*.md
+README.md
+
+# Python cache and virtual environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.env
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files (don't copy into container)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Logs and temporary files
+*.log
+tmp/
+temp/
+
+# Database files (handled by volumes)
+*.db
+*.sqlite
+
+# Build artifacts
+dist/
+build/
+*.egg-info/

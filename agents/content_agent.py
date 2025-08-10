@@ -5,21 +5,21 @@ import fitz
 import docx2txt
 
 from langchain.chains import RetrievalQA
-from langchain.vectorstores import FAISS
+from langchain_community.vectorstores import FAISS
 from langchain_cohere import ChatCohere
 
-from src.core.config import COURSE_VS, PAPERS_DIR, EMBED_MODEL, tavily_api_key
-from src.tools.web_search_tool import web_search
-from src.utils.data_loaders import load_research_papers
+from core.config import COURSE_VS, PAPERS_DIR, EMBED_MODEL, tavily_api_key, COHERE_CHAT_MODEL
+from tools.web_search_tool import web_search
+from utils.data_loaders import load_research_papers
 
 # TODO: Add better comments and docstrings
 
 class ContentAgent:
     def __init__(self, cohere_key: str):
-        # Initialize LLM and paper retrieverlaslty what are the three
+        # Initialize LLM and paper retriever
         self.llm = ChatCohere(
             cohere_api_key=cohere_key,
-            model="command-r",
+            model=COHERE_CHAT_MODEL,
             temperature=0
         )
         docs = load_research_papers(PAPERS_DIR)

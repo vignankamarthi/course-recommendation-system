@@ -1,22 +1,102 @@
 import cohere
 from neo4j import GraphDatabase
+from neo4j.exceptions import ServiceUnavailable, AuthError, ClientError, TransientError
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 from core.config import neo4j_uri, neo4j_user, neo4j_password, cohere_api_key, COHERE_EMBED_MODEL
+from utils.logger import SystemLogger
+from utils.exceptions import DatabaseConnectionError, DatabaseQueryError, APIRequestError
 
-co = cohere.Client(cohere_api_key)
-cohere_model = COHERE_EMBED_MODEL
+# Initialize Cohere client with error handling
+try:
+    co = cohere.Client(cohere_api_key)
+    cohere_model = COHERE_EMBED_MODEL
+    SystemLogger.info("Cohere client initialized successfully", {'model': cohere_model})
+except Exception as e:
+    SystemLogger.error(
+        "Failed to initialize Cohere client - Check API key validity",
+        exception=e,
+        context={'api_key_provided': bool(cohere_api_key), 'model': COHERE_EMBED_MODEL}
+    )
+    raise APIRequestError(f"Failed to initialize Cohere client: {e}")
 
 #TODO: Structure and docstring is whack, needs better readability. WHole file is just adpdaters/wrappers for the agent to tulize neo4j as a vector database and store user interactions.
 class Neo4jConnector:
     def __init__(self):
-        self.driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
+        SystemLogger.info("Initializing Neo4j connection", {
+            'uri': neo4j_uri, 'user': neo4j_user
+        })
+        
+        try:
+            self.driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
+            
+            # Test connection immediately
+            with self.driver.session() as session:
+                session.run("RETURN 1 AS test")
+                
+            SystemLogger.info("Neo4j connection established successfully", {
+                'uri': neo4j_uri, 'database': 'default'
+            })
+        except AuthError as e:
+            SystemLogger.error(
+                "Neo4j authentication failed - Check username and password",
+                exception=e,
+                context={'uri': neo4j_uri, 'user': neo4j_user}
+            )
+            raise DatabaseConnectionError(f"Neo4j authentication failed: {e}")
+        except ServiceUnavailable as e:
+            SystemLogger.error(
+                "Neo4j service unavailable - Check if Neo4j server is running and accessible",
+                exception=e,
+                context={'uri': neo4j_uri}
+            )
+            raise DatabaseConnectionError(f"Neo4j service unavailable: {e}")
+        except Exception as e:
+            SystemLogger.error(
+                "Failed to establish Neo4j connection - Check server status and network connectivity",
+                exception=e,
+                context={'uri': neo4j_uri, 'user': neo4j_user}
+            )
+            raise DatabaseConnectionError(f"Neo4j connection failed: {e}")
 
     def store_interaction(self, user_id, education, age_group, profession, user_query, response, user_vector):
-        with self.driver.session() as session:
-            session.execute_write(
-                self._create_interaction, user_id, education, age_group, profession, user_query, response, user_vector
+        SystemLogger.debug("Storing user interaction in Neo4j", {
+            'user_id': user_id, 'education': education, 'age_group': age_group, 'profession': profession
+        })
+        
+        try:
+            with self.driver.session() as session:
+                session.execute_write(
+                    self._create_interaction, user_id, education, age_group, profession, user_query, response, user_vector
+                )
+            SystemLogger.info("User interaction stored successfully in Neo4j", {
+                'user_id': user_id, 'query_preview': user_query[:100] if user_query else 'N/A'
+            })
+        except ClientError as e:
+            SystemLogger.error(
+                "Neo4j client error while storing interaction - Check Cypher query syntax",
+                exception=e,
+                context={
+                    'user_id': user_id,
+                    'cypher_error_code': getattr(e, 'code', 'unknown'),
+                    'query_preview': user_query[:100] if user_query else 'N/A'
+                }
             )
+            raise DatabaseQueryError(f"Failed to store interaction: {e}")
+        except TransientError as e:
+            SystemLogger.error(
+                "Neo4j transient error while storing interaction - Temporary database issue, retry may succeed",
+                exception=e,
+                context={'user_id': user_id}
+            )
+            raise DatabaseQueryError(f"Transient error storing interaction: {e}")
+        except Exception as e:
+            SystemLogger.error(
+                "Unexpected error storing Neo4j interaction",
+                exception=e,
+                context={'user_id': user_id, 'education': education, 'age_group': age_group}
+            )
+            raise DatabaseQueryError(f"Failed to store interaction: {e}")
 
     @staticmethod
     def _create_interaction(tx, user_id, education, age_group, profession, user_query, response, user_vector):
@@ -60,35 +140,113 @@ class Neo4jConnector:
         for record in result
       ]
     def get_user_vector(self, education, age_group, profession, user_query):
+        SystemLogger.debug("Generating user vector with Cohere", {
+            'education': education, 'age_group': age_group, 'profession': profession
+        })
+        
         profile_text = (
             f"User with {education} education, aged {age_group}, "
             f"working at {profession} level. Recently asked: '{user_query}'"
         )
-
-        response = co.embed(
-            texts=[profile_text],
-            model=cohere_model,
-            input_type="clustering"
-        )
-        return response.embeddings[0]
+        
+        try:
+            response = co.embed(
+                texts=[profile_text],
+                model=cohere_model,
+                input_type="clustering"
+            )
+            
+            if not response.embeddings or not response.embeddings[0]:
+                SystemLogger.error(
+                    "Cohere API returned empty embeddings - Check input text and model availability",
+                    context={'profile_text': profile_text, 'model': cohere_model}
+                )
+                raise APIRequestError("Cohere returned empty embeddings")
+            
+            SystemLogger.debug("User vector generated successfully", {
+                'vector_dimension': len(response.embeddings[0]),
+                'model': cohere_model
+            })
+            return response.embeddings[0]
+            
+        except cohere.errors.CohereAPIError as e:
+            SystemLogger.error(
+                "Cohere API error while generating embeddings - Check API key and quota limits",
+                exception=e,
+                context={
+                    'profile_text': profile_text,
+                    'model': cohere_model,
+                    'api_error_code': getattr(e, 'status_code', 'unknown')
+                }
+            )
+            raise APIRequestError(f"Cohere API error: {e}")
+        except Exception as e:
+            SystemLogger.error(
+                "Unexpected error generating user vector with Cohere",
+                exception=e,
+                context={'profile_text': profile_text, 'model': cohere_model}
+            )
+            raise APIRequestError(f"Failed to generate user vector: {e}")
 
     def get_similar_users(self, user_vector, top_n=5):
-      all_users = self.get_all_user_vectors()
-      similarities = []
-
-      for user in all_users:
+        SystemLogger.debug("Computing user similarity vectors", {
+            'top_n': top_n, 'input_vector_dimension': len(user_vector) if user_vector else 0
+        })
+        
         try:
-            similarity = cosine_similarity([user_vector], [user["user_vector"]])
-            similarities.append({
-                "user_id": user["user_id"],
-                "query": user["query"],
-                "score": similarity[0][0]
+            all_users = self.get_all_user_vectors()
+            if not all_users:
+                SystemLogger.info("No existing user vectors found in Neo4j database")
+                return []
+                
+            SystemLogger.debug(f"Retrieved user vectors for similarity computation", {
+                'total_users': len(all_users)
             })
-        except Exception as e:
-            print(f"Error computing similarity: {e}")
+            
+            similarities = []
+            failed_computations = 0
 
-      similarities.sort(key=lambda x: x["score"], reverse=True)
-      return similarities[:top_n]
+            for user in all_users:
+                try:
+                    if not user.get("user_vector"):
+                        SystemLogger.debug(f"Skipping user with empty vector", {'user_id': user.get('user_id')})
+                        continue
+                        
+                    similarity = cosine_similarity([user_vector], [user["user_vector"]])
+                    similarities.append({
+                        "user_id": user["user_id"],
+                        "query": user["query"],
+                        "score": similarity[0][0]
+                    })
+                except Exception as e:
+                    failed_computations += 1
+                    SystemLogger.debug(f"Failed to compute similarity for user", {
+                        'user_id': user.get('user_id'), 'error': str(e)
+                    })
+
+            if failed_computations > 0:
+                SystemLogger.info(f"Some similarity computations failed", {
+                    'failed_count': failed_computations, 'successful_count': len(similarities)
+                })
+
+            similarities.sort(key=lambda x: x["score"], reverse=True)
+            result = similarities[:top_n]
+            
+            SystemLogger.info("User similarity computation completed", {
+                'total_computed': len(similarities),
+                'returned_count': len(result),
+                'top_score': result[0]['score'] if result else 0
+            })
+            
+            return result
+            
+        except Exception as e:
+            SystemLogger.error(
+                "Failed to compute user similarities - Error in vector computation or database query",
+                exception=e,
+                context={'top_n': top_n, 'vector_provided': user_vector is not None}
+            )
+            raise DatabaseQueryError(f"Failed to compute user similarities: {e}")
 
     def get_recommendations_for_user(self, query):
         with self.driver.session() as session:

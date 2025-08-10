@@ -1,5 +1,6 @@
 TODO: Improve README Features section for more streamlined instructions on how to get started (set up virtual environment --> instal requirements.txt file by ... )
 TODO: Make sure flow for onboarding is streamlined: docker image conainter building --> create venv --> develop
+TODO: Include error handling and logging structure documentation right on the readme  
 
 # Personalized Course Recommendation System
 

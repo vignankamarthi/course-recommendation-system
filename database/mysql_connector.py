@@ -3,6 +3,8 @@ from mysql.connector import Error, pooling
 from typing import List, Dict, Any, Optional, Tuple
 import os
 from contextlib import contextmanager
+from utils.logger import SystemLogger
+from utils.exceptions import DatabaseConnectionError, DatabaseQueryError
 
 
 class MySQLConnector:
@@ -51,6 +53,10 @@ class MySQLConnector:
         }
         
         # Create connection pool
+        SystemLogger.info(f"Initializing MySQL connection pool", {
+            'host': host, 'database': database, 'user': user, 'pool_size': pool_size
+        })
+        
         try:
             self.pool = pooling.MySQLConnectionPool(
                 pool_name=pool_name,
@@ -58,8 +64,16 @@ class MySQLConnector:
                 pool_reset_session=True,
                 **self.config
             )
+            SystemLogger.info("MySQL connection pool created successfully", {
+                'pool_name': pool_name, 'pool_size': pool_size
+            })
         except Error as e:
-            raise ConnectionError(f"Failed to create connection pool: {e}")
+            SystemLogger.error(
+                f"Failed to create MySQL connection pool - Check MySQL server status and credentials",
+                exception=e,
+                context={'config': {k: v for k, v in self.config.items() if k != 'password'}}
+            )
+            raise DatabaseConnectionError(f"Failed to create connection pool: {e}")
     
     @contextmanager
     def get_connection(self):
@@ -77,16 +91,25 @@ class MySQLConnector:
             If unable to get connection from pool
         """
         connection = None
+        SystemLogger.debug("Acquiring MySQL connection from pool")
+        
         try:
             connection = self.pool.get_connection()
+            SystemLogger.debug("MySQL connection acquired successfully")
             yield connection
         except Error as e:
+            SystemLogger.error(
+                "Failed to acquire MySQL connection from pool - Pool may be exhausted or MySQL server down",
+                exception=e,
+                context={'pool_size': getattr(self.pool, '_cnx_queue', {}).maxsize if hasattr(self.pool, '_cnx_queue') else 'unknown'}
+            )
             if connection and connection.is_connected():
                 connection.rollback()
-            raise ConnectionError(f"Database connection error: {e}")
+            raise DatabaseConnectionError(f"Database connection error: {e}")
         finally:
             if connection and connection.is_connected():
                 connection.close()
+                SystemLogger.debug("MySQL connection returned to pool")
     
     def execute_query(self, query: str, params: Optional[Tuple] = None) -> List[Dict[str, Any]]:
         """
@@ -109,15 +132,32 @@ class MySQLConnector:
         Exception
             If query execution fails
         """
+        SystemLogger.debug(f"Executing MySQL SELECT query", {'query_preview': query[:100], 'has_params': params is not None})
+        
         with self.get_connection() as connection:
             try:
                 cursor = connection.cursor(dictionary=True)
                 cursor.execute(query, params)
                 results = cursor.fetchall()
                 cursor.close()
+                
+                SystemLogger.debug(f"MySQL query executed successfully", {
+                    'rows_returned': len(results),
+                    'query_preview': query[:100]
+                })
                 return results
             except Error as e:
-                raise Exception(f"Query execution failed: {e}")
+                SystemLogger.error(
+                    f"MySQL SELECT query execution failed - Check query syntax and table existence",
+                    exception=e,
+                    context={
+                        'query': query,
+                        'params': params,
+                        'error_code': getattr(e, 'errno', 'unknown'),
+                        'sql_state': getattr(e, 'sqlstate', 'unknown')
+                    }
+                )
+                raise DatabaseQueryError(f"Query execution failed: {e}")
     
     def execute_update(self, query: str, params: Optional[Tuple] = None) -> int:
         """
@@ -140,6 +180,8 @@ class MySQLConnector:
         Exception
             If query execution fails
         """
+        SystemLogger.debug(f"Executing MySQL UPDATE/INSERT/DELETE query", {'query_preview': query[:100], 'has_params': params is not None})
+        
         with self.get_connection() as connection:
             try:
                 cursor = connection.cursor()
@@ -147,10 +189,25 @@ class MySQLConnector:
                 connection.commit()
                 affected_rows = cursor.rowcount
                 cursor.close()
+                
+                SystemLogger.debug(f"MySQL update query executed successfully", {
+                    'affected_rows': affected_rows,
+                    'query_preview': query[:100]
+                })
                 return affected_rows
             except Error as e:
                 connection.rollback()
-                raise Exception(f"Update query failed: {e}")
+                SystemLogger.error(
+                    f"MySQL UPDATE/INSERT/DELETE query execution failed - Check query syntax and constraints",
+                    exception=e,
+                    context={
+                        'query': query,
+                        'params': params,
+                        'error_code': getattr(e, 'errno', 'unknown'),
+                        'sql_state': getattr(e, 'sqlstate', 'unknown')
+                    }
+                )
+                raise DatabaseQueryError(f"Update query failed: {e}")
     
     def get_courses(self) -> List[Dict[str, Any]]:
         """
@@ -161,6 +218,8 @@ class MySQLConnector:
         List[Dict[str, Any]]
             Course data with modules
         """
+        SystemLogger.info("Retrieving all courses from MySQL database")
+        
         query = """
         SELECT 
             course_name,
@@ -169,7 +228,20 @@ class MySQLConnector:
         FROM course_modules_view 
         ORDER BY course_name, order_index, module_name
         """
-        return self.execute_query(query)
+        
+        try:
+            courses = self.execute_query(query)
+            SystemLogger.info(f"Successfully retrieved courses from database", {
+                'total_entries': len(courses),
+                'unique_courses': len(set(row['course_name'] for row in courses))
+            })
+            return courses
+        except DatabaseQueryError as e:
+            SystemLogger.error(
+                "Failed to retrieve courses - Check if course_modules_view exists and is accessible",
+                exception=e,
+                context={'view_name': 'course_modules_view'}
+            )
     
     def search_courses(self, search_term: str) -> List[Dict[str, Any]]:
         """
@@ -234,12 +306,21 @@ class MySQLConnector:
         bool
             True if connection successful, False otherwise
         """
+        SystemLogger.debug("Testing MySQL database connection")
+        
         try:
             with self.get_connection() as connection:
                 cursor = connection.cursor()
                 cursor.execute("SELECT 1")
                 cursor.fetchone()
                 cursor.close()
-                return True
-        except Exception:
+                
+            SystemLogger.info("MySQL database connection test successful")
+            return True
+        except Exception as e:
+            SystemLogger.error(
+                "MySQL database connection test failed - Check MySQL server status and network connectivity",
+                exception=e,
+                context={'config': {k: v for k, v in self.config.items() if k != 'password'}}
+            )
             return False

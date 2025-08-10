@@ -8,13 +8,13 @@ from langchain.chains import RetrievalQA
 from langchain.vectorstores import FAISS
 from langchain_cohere import ChatCohere
 
-from config import COURSE_VS, PAPERS_DIR, EMBED_MODEL, tavily_api_key
-from content_agent_tools import web_search
-from content_agent_helper_functions import load_research_papers
+from src.core.config import COURSE_VS, PAPERS_DIR, EMBED_MODEL, tavily_api_key
+from src.tools.web_search_tool import web_search
+from src.utils.data_loaders import load_research_papers
 
 # TODO: Add better comments and docstrings
 
-class AgenticRAG:
+class ContentAgent:
     def __init__(self, cohere_key: str):
         # Initialize LLM and paper retrieverlaslty what are the three
         self.llm = ChatCohere(

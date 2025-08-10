@@ -1,40 +1,25 @@
 # LangGraph Workflow
-import os
-import pandas as pd
 import cohere
-from langchain_cohere import ChatCohere
 from langgraph.graph import StateGraph
-from config import cohere_api_key
-from neo4j_connector import Neo4jConnector
-from config import DATA_DIR
+from src.core.config import cohere_api_key
+from src.database.neo4j_connector import Neo4jConnector
+from src.agents.database_agent import DatabaseAgent
+from src.agents.collaborative_agent import CollaborativeAgent
+from src.agents.content_agent import ContentAgent
 
 
 # TODO: Need better docstring and comments throughout.
-
-# TODO: Need better strucutre, as we have three flows: irrelevant, database_lookup, and recommendation, and that is not clear. 
 class RecommendationSystem:
+    """Orchestrates different agents based on user query intent."""
+    
     def __init__(self):
         self.workflow = StateGraph(dict)
         self.neo4j = Neo4jConnector()
         self.cohere_client = cohere.Client(cohere_api_key)
-        self.impel_data = self.load_impel_courses_and_modules(
-            os.path.join(DATA_DIR, "Course_Module_New.xlsx")
-        )
+        self.database_agent = DatabaseAgent()
+        self.collaborative_agent = CollaborativeAgent()
+        self.content_agent = ContentAgent(cohere_key=cohere_api_key)
 
-
-# TODO: Figure out how to acheive same eng goal with MySQL transition
-    def load_impel_courses_and_modules(self, filepath):
-        df = pd.read_excel(filepath)
-        grouped = df.groupby("Courses")
-        formatted = ""
-        for course, group in grouped:
-            formatted += f"**Course: {course}**\nModules:\n"
-            for _, row in group.iterrows():
-                module = row["Modules"].strip()
-                summary = row["Summary"].strip()
-                formatted += f"- {module}: {summary}\n"
-            formatted += "\n"
-        return formatted.strip()
 
 # TODO: Explore improving this initilization prompt
     def classify_intent(self, query):
@@ -42,11 +27,12 @@ class RecommendationSystem:
 You are an intent classification assistant. Categorize the user's query as one of the following:
 - "database_lookup": if they want to list or explore specific IMPEL courses/modules or descriptions.
 - "recommendation": if they are asking what course suits their goal, background, or if they are exploring learning paths, skills or roles in the broad spectrum of Data Science or AI (e.g., how to become a data scientist, what an ML Engineer does, data scientist average salary, etc.).
+- "content_analysis": if they are asking about trending skills, job market insights, or want content-based recommendations with research papers.
 - "irrelevant": if the query is clearly unrelated to Data Science, AI, Information Technology or education, such as questions about movies, cooking, weather, jokes, casual greetings or personal life.
 
 
 User query: "{query}"
-Only reply with one of the following words: "database_lookup", "recommendation", or "irrelevant".
+Only reply with one of the following words: "database_lookup", "recommendation", "content_analysis", or "irrelevant".
 """
         response = self.cohere_client.generate(
             model="command-r-plus",
@@ -70,101 +56,54 @@ Only reply with one of the following words: "database_lookup", "recommendation",
         return state
 
     def generate_recommendations(self, state):
-        user_vector = state["user_vector"]
-        similar_users = self.neo4j.get_similar_users(user_vector)
-
-        if not similar_users:
-            state["response"] = "No similar users found. Here are some suggested IMPEL courses and modules:\n\n"
-            prompt = f"""
-You are a course recommendation assistant. Below are courses and their modules from the IMPEL database:
-{self.impel_data}
-User query: '{state['query']}'
-Suggest relevant courses and their modules.
-Format:
-**Course: <Course Name>**
-- <Module 1>
-- <Module 2>
-"""
-        else:
-            state["response"] = "Recommended based on similar users’ interests:\n\n"
-            most_similar_query = similar_users[0]["query"]
-            similar_user_recs = self.neo4j.get_recommendations_for_user(most_similar_query)
-            prompt = f"""
-You are a course recommendation assistant. Below are courses and their modules from the IMPEL database:
-{self.impel_data}
-A similar user was interested in: {similar_user_recs}
-Current user query: '{state['query']}'
-Suggest relevant courses and modules for this user.
-Format:
-**Course: <Course Name>**
-- <Module 1>
-- <Module 2>
-"""
-
-        response = self.cohere_client.generate(
-            model='command-r-plus',
-            prompt=prompt,
-            max_tokens=400
-        )
-        state["response"] += response.generations[0].text.strip()
-
-        similar_user_ids = [user["user_id"] for user in similar_users]
-        enrolled_courses = self.neo4j.get_enrolled_courses_from_similar_users(similar_user_ids)
-
-        if enrolled_courses:
-            state["similar_user_courses"] = "\n".join(f"- {name}" for name in sorted(set(enrolled_courses)))
-        else:
-            state["similar_user_courses"] = "No similar users who enrolled for IMPEL courses found."
-
-        return state
-
-    def run_database_agent(self, state):
-        query = state["query"]
-        demographics = {
+        """Delegate to CollaborativeAgent for recommendations."""
+        user_context = {
             "education": state["education"],
             "age_group": state["age_group"],
             "profession": state["profession"]
         }
-
-        vector = self.neo4j.get_user_vector(
-            demographics["education"],
-            demographics["age_group"],
-            demographics["profession"],
-            query
+        
+        result = self.collaborative_agent.generate_recommendations(
+            query=state["query"], 
+            user_context=user_context
         )
-        state["user_vector"] = vector
-        state["demographics"] = demographics
+        
+        state["response"] = result["response"]
+        state["similar_user_courses"] = result["similar_user_courses"]
+        state["user_vector"] = result["user_vector"]
+        return state
 
-        prompt = f"""
-You are an educational assistant helping users explore a database of courses and modules from the IMPEL program.
-Here is the available data:
-{self.impel_data}
-User Query: "{query}"
-Task:
-1. If the user asks for all courses and modules, return all course names and their modules' names. 
-2. If asking for modules under a course, return only those.
-3. If keyword/topic search, return matching courses.
-Format:
-**Course: <Course>**
-- <Module>: <Summary>
-"""
-        response = self.cohere_client.generate(
-            model="command-r-plus",
-            prompt=prompt,
-            max_tokens=2000,
-            temperature=0.3
+    def run_database_agent(self, state):
+        """Delegate to DatabaseAgent for course lookups."""
+        user_context = {
+            "education": state["education"],
+            "age_group": state["age_group"],
+            "profession": state["profession"]
+        }
+        
+        result = self.database_agent.lookup_courses(
+            query=state["query"],
+            user_context=user_context
         )
+        
+        state["response"] = result["response"]
+        state["similar_user_courses"] = result["similar_user_courses"]
+        state["user_vector"] = result["user_vector"]
+        state["demographics"] = user_context
+        return state
 
-        state["response"] = response.generations[0].text.strip()
-
-        similar_users = self.neo4j.get_similar_users(vector)
-        if similar_users:
-            user_ids = [user["user_id"] for user in similar_users]
-            courses = self.neo4j.get_enrolled_courses_from_similar_users(user_ids)
-            state["similar_user_courses"] = "\n".join(f"- {c}" for c in sorted(set(courses))) if courses else "No similar users who enrolled for IMPEL courses found."
-        else:
-            state["similar_user_courses"] = "No similar users who enrolled for IMPEL courses found."
-
+    def run_content_agent(self, state):
+        """Delegate to ContentAgent for content-based recommendations and market analysis."""
+        uploaded_files = state.get("uploaded_files", [])
+        
+        # ContentAgent handles its own logic and returns formatted response
+        result = self.content_agent.run(
+            query=state["query"],
+            uploaded_files=uploaded_files
+        )
+        
+        state["response"] = result
+        state["similar_user_courses"] = ""  # ContentAgent doesn't use collaborative data
         return state
 
     def store_result(self, state):
@@ -204,7 +143,19 @@ Format:
 
         return graph.compile()
 
-    def handle_user_query(self, user_id, education, age_group, profession, query):
+    def build_content_workflow(self):
+        graph = StateGraph(dict)
+        graph.add_node("collect_data", self.collect_user_data)
+        graph.add_node("run_content_agent", self.run_content_agent)
+        graph.add_node("store_result", self.store_result)
+
+        graph.set_entry_point("collect_data")
+        graph.add_edge("collect_data", "run_content_agent")
+        graph.add_edge("run_content_agent", "store_result")
+
+        return graph.compile()
+
+    def handle_user_query(self, user_id, education, age_group, profession, query, uploaded_files=None):
         intent = self.classify_intent(query)
 
         state = {
@@ -213,6 +164,7 @@ Format:
             "age_group": age_group,
             "profession": profession,
             "query": query,
+            "uploaded_files": uploaded_files or []
         }
 
         if intent == "recommendation":
@@ -224,6 +176,11 @@ Format:
             app = self.build_database_lookup_workflow()
             final_state = app.invoke(state)
             return final_state["response"], final_state["similar_user_courses"]
+
+        elif intent == "content_analysis":
+            app = self.build_content_workflow()
+            final_state = app.invoke(state)
+            return final_state["response"], final_state.get("similar_user_courses", "")
 
         elif intent == "irrelevant":
             return (

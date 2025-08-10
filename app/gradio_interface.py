@@ -1,46 +1,30 @@
 # Gradio interface 
 
 import gradio as gr
-from rag_inference import run_rag_inference
-from recommender_langgraph import RecommendationSystem
-from content_agent import AgenticRAG
-from config import cohere_api_key
-
-#TODO: Comments needed for all funtions here. FOLLOW NUMPY  
-
-#TODO: SRC structure is not enough. We need to seperate the src (agentic flow), UI, and DATA folders for better modulariizaiontion and maintainability, as well as extensibility. 
-content_agent = AgenticRAG(cohere_key = cohere_api_key)
+from src.core.orchestrator import RecommendationSystem
+#TODO: Comments needed for all funtions here. FOLLOW NUMPY
 
 def process_recommendations(user_id, education, age_group, profession, user_query, uploaded_file):
+    """
+    Process user query through orchestrator and format UI response.
+    
+    This function is purely for UI formatting - all business logic 
+    is handled by the RecommendationSystem orchestrator.
+    """
     recommender = RecommendationSystem()
-    intent = recommender.classify_intent(user_query)
-
-    if intent == "database_lookup":
-        response, similar_courses = recommender.handle_user_query(
+    
+    # Convert uploaded file to list format expected by orchestrator
+    files = uploaded_file if isinstance(uploaded_file, list) else [uploaded_file] if uploaded_file else []
+    
+    # Get response from orchestrator (handles all agent routing)
+    response, similar_courses = recommender.handle_user_query(
         user_id=user_id,
         education=education,
         age_group=age_group,
         profession=profession,
-        query=user_query
+        query=user_query,
+        uploaded_files=files
     )
-        if response.strip().lower().startswith("sorry, i couldn't find"):
-            return (
-                gr.update(value=f"⚠️ {response.strip()}", visible=True),
-                gr.update(visible=False),
-                gr.update(visible=False),
-                gr.update(visible=False)
-            )
-        return (
-            gr.update(value="ℹ️ **Database Agent activated: Showing course/module info**", visible=True),
-            gr.update(value=f"{response}", visible=True, label="Courses and Modules"),
-            gr.update(value="", visible=False),
-            gr.update(value=f"{similar_courses}", visible=True)
-        )
-
-    # Content-based + RAG collaborative recommendation path
-    files = uploaded_file if isinstance(uploaded_file, list) else [uploaded_file] if uploaded_file else []
-    content_rec = content_agent.run(query=user_query, uploaded_files=files)
-    response, similar_courses = run_rag_inference(user_id, education, age_group, profession, user_query, files)
 
     if isinstance(response, dict) and "error" in response:
         return (
@@ -50,12 +34,21 @@ def process_recommendations(user_id, education, age_group, profession, user_quer
             gr.update(visible=False)
         )
 
-    return (
-        gr.update(value="✅ **Recommendation Agent activated: Personalized Recommendations Ready!**", visible=True),
-        gr.update(value=f"{content_rec}", visible=True, label="Content-based Recommendations"),
-        gr.update(value=f"{response}", visible=True),
-        gr.update(value=f"{similar_courses}", visible=True)
-    )
+    # Format UI response based on orchestrator result
+    if response and not response.startswith("Sorry"):
+        return (
+            gr.update(value="✅ **Recommendation Ready!**", visible=True),
+            gr.update(visible=False),  # No separate content display needed
+            gr.update(value=f"{response}", visible=True, label="Recommendations"),
+            gr.update(value=f"{similar_courses}" if similar_courses else "", visible=bool(similar_courses))
+        )
+    else:
+        return (
+            gr.update(value=f"⚠️ {response}", visible=True),
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=False)
+        )
 
 
 

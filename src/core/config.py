@@ -6,10 +6,10 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
 
 # Set up relative paths for Hugging Face Spaces
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 IMPEL_CSV = os.path.join(DATA_DIR, "Course_Module_New.xlsx")
-PAPERS_DIR = os.path.join(PROJECT_ROOT, "papers")
+PAPERS_DIR = os.path.join(DATA_DIR, "papers")
 VECTOR_DB = os.path.join(DATA_DIR, "vector_db")
 
 neo4j_uri = "neo4j+s://2b228b65.databases.neo4j.io"

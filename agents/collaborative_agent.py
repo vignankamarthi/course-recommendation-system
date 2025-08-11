@@ -16,7 +16,7 @@ class CollaborativeAgent:
     
     Implements collaborative filtering algorithms to generate personalized course
     recommendations by finding similar users and analyzing their learning patterns.
-    Integrates user demographics, learning history, and preference matching for
+    Integrates user profile data, learning history, and preference matching for
     targeted educational suggestions.
     
     Attributes

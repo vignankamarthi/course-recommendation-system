@@ -1,6 +1,6 @@
 # app.py
 
-#TODO: Add better comments. 
+# Main entry point for the application
 
 from app.gradio_interface import create_gradio_interface
 

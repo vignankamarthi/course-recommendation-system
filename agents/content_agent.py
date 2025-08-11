@@ -17,8 +17,6 @@ from utils.exceptions import (
     AgentExecutionError, ConfigurationError
 )
 
-# TODO: Add better comments and docstrings
-
 class ContentAgent:
     """
     AI agent for content-based recommendations and market analysis.
@@ -132,7 +130,6 @@ class ContentAgent:
             raise AgentExecutionError("Query cannot be empty")
         
         try:
-            # TODOL: Maybe improve initiliation prompt?
             prompt = (
                 f"You are a parsing assistant. Given the user query:\n  '{query}'\n"
                 "Return ONLY a JSON object with keys:\n"
@@ -402,13 +399,13 @@ class ContentAgent:
                         "Tavily API key not available for trending skills search",
                         context={'tavily_key_provided': bool(tavily_api_key)}
                     )
-                    sections.append("## 🔥 Trending Skills\nUnable to fetch trending skills - API key not configured.")
+                    sections.append("## Trending Skills\nUnable to fetch trending skills - API key not configured.")
                 else:
                     results = web_search(query, tavily_api_key)
                     
                     if not results:
                         SystemLogger.info("No web search results for trending skills")
-                        sections.append("## 🔥 Trending Skills\nNo current trending skills data available.")
+                        sections.append("## Trending Skills\nNo current trending skills data available.")
                     else:
                         context = '\n'.join(
                             f"- {r.get('title', 'No title')}: {r.get('snippet', 'No snippet')}" 
@@ -416,7 +413,6 @@ class ContentAgent:
                             for r in results
                         )
                         
-                        # TODO: Improve prompt to be stronger?
                         trend_prompt = (
                             f"You are an industry analyst. User query: '{query}'.\n"
                             "Based only on these search results (title and snippet):\n"
@@ -427,10 +423,10 @@ class ContentAgent:
                         raw = self.llm.invoke(trend_prompt)
                         if not raw:
                             SystemLogger.error("LLM returned empty response for trending skills")
-                            sections.append("## 🔥 Trending Skills\nUnable to analyze trending skills data.")
+                            sections.append("## Trending Skills\nUnable to analyze trending skills data.")
                         else:
                             content = raw.get('content') if isinstance(raw, dict) else getattr(raw, 'content', str(raw))
-                            sections.append(f"## 🔥 Trending Skills\n{content.strip()}")
+                            sections.append(f"## Trending Skills\n{content.strip()}")
                             SystemLogger.debug("Trending skills section generated successfully")
                         
             except Exception as trend_error:
@@ -439,7 +435,7 @@ class ContentAgent:
                     exception=trend_error,
                     context={'query': query}
                 )
-                sections.append("## 🔥 Trending Skills\nUnable to fetch trending skills due to system error.")
+                sections.append("## Trending Skills\nUnable to fetch trending skills due to system error.")
 
         # Job info via Tavily + LLM
         if 'job_info' in intents:
@@ -451,13 +447,13 @@ class ContentAgent:
                         "Tavily API key not available for job info search",
                         context={'tavily_key_provided': bool(tavily_api_key)}
                     )
-                    sections.append("## 📋 Job Information\nUnable to fetch job information - API key not configured.")
+                    sections.append("## Job Information\nUnable to fetch job information - API key not configured.")
                 else:
                     results = web_search(query, tavily_api_key)
                     
                     if not results:
                         SystemLogger.info("No web search results for job info")
-                        sections.append("## 📋 Job Information\nNo current job information available.")
+                        sections.append("## Job Information\nNo current job information available.")
                     else:
                         context = '\n'.join(
                             f"- {r.get('title', 'No title')}: {r.get('snippet', 'No snippet')}" 
@@ -466,7 +462,6 @@ class ContentAgent:
                         )
                         
                         job_prompt = (
-                            # TODO: Improve prompt to be more specific?
                             f"You are a career advisor. User query: '{query}'.\n"
                             "Based only on these search results (title and snippet):\n"
                             f"{context}\n\n"
@@ -476,11 +471,11 @@ class ContentAgent:
                         raw = self.llm.invoke(job_prompt)
                         if not raw:
                             SystemLogger.error("LLM returned empty response for job info")
-                            sections.append("## 📋 Job Information\nUnable to analyze job information data.")
+                            sections.append("## Job Information\nUnable to analyze job information data.")
                         else:
                             content = raw.get('content') if isinstance(raw, dict) else getattr(raw, 'content', str(raw))
                             role = meta.get('target_role') or query
-                            sections.append(f"## 📋 Job Role ({role})\n{content.strip()}")
+                            sections.append(f"## Job Role ({role})\n{content.strip()}")
                             SystemLogger.debug("Job info section generated successfully")
                         
             except Exception as job_error:
@@ -489,7 +484,7 @@ class ContentAgent:
                     exception=job_error,
                     context={'query': query}
                 )
-                sections.append("## 📋 Job Information\nUnable to fetch job information due to system error.")
+                sections.append("## Job Information\nUnable to fetch job information due to system error.")
 
         # Course recommendations
         if 'learn_courses' in intents:
@@ -505,7 +500,7 @@ class ContentAgent:
                     exception=course_error,
                     context={'query': query, 'resume_length': len(resume)}
                 )
-                sections.append("## 🎓 Course Recommendations\nUnable to generate course recommendations due to system error.")
+                sections.append("## Course Recommendations\nUnable to generate course recommendations due to system error.")
 
         # Check if any sections were generated
         if not sections:
@@ -516,12 +511,10 @@ class ContentAgent:
             # Final assembly
             SystemLogger.debug("Assembling final response from sections")
             assemble_prompt = (
-                #TODO: Improve this prompt to be more specific and clear, reducing incorrect outputs
                 "Combine these sections exactly, preserving titles and bullets. "
                 "Do NOT add intros or follow-ups and DO NOT make any content changes to the respective sections"
                 "(If there are summaries for each research paper recommendation if any, do not exclude them. "
-                "They're very important.)"
-                "But do keep/add relevant icons to respective sub sections titles.\n\n" + "\n---\n".join(sections)
+                "They're very important.)\n\n" + "\n---\n".join(sections)
             )
             
             raw = self.llm.invoke(assemble_prompt)
@@ -565,7 +558,7 @@ class ContentAgent:
                     "Empty query provided to course section builder",
                     context={'query': repr(query)}
                 )
-                return "## 🎓 Course Recommendations\nUnable to generate recommendations - no query provided."
+                return "## Course Recommendations\nUnable to generate recommendations - no query provided."
             
             # Prepare search query
             q = (resume + '\n' + query).strip() if resume else query.strip()
@@ -581,7 +574,7 @@ class ContentAgent:
                     "Course vector store not available for similarity search",
                     context={'course_vs_configured': COURSE_VS is not None}
                 )
-                return "## 🎓 Course Recommendations\nCourse database not available."
+                return "## Course Recommendations\nCourse database not available."
             
             try:
                 recs = COURSE_VS.similarity_search(q, k=3)
@@ -594,10 +587,10 @@ class ContentAgent:
                     exception=search_error,
                     context={'search_query_length': len(q)}
                 )
-                return "## 🎓 Course Recommendations\nUnable to search course database."
+                return "## Course Recommendations\nUnable to search course database."
             
             # Build course recommendations
-            lines = ['## 🎓 Top 3 IMPEL Course Recommendations for You']
+            lines = ['## Top 3 IMPEL Course Recommendations for You']
             if not recs:
                 lines.append("No matching courses found for your query.")
             else:
@@ -641,7 +634,7 @@ class ContentAgent:
 
             # Research papers section
             SystemLogger.debug("Building research papers section")
-            papers = ['## 📄 Related Research Papers']
+            papers = ['## Related Research Papers']
             
             try:
                 if not self.paper_vs:
@@ -736,4 +729,4 @@ class ContentAgent:
                 exception=section_error,
                 context={'query': query, 'resume_length': len(resume) if resume else 0}
             )
-            return "## 🎓 Course Recommendations\nUnable to generate course recommendations due to system error."
+            return "## Course Recommendations\nUnable to generate course recommendations due to system error."

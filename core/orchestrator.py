@@ -104,7 +104,6 @@ class RecommendationSystem:
             )
             raise AgentExecutionError(f"Failed to initialize RecommendationSystem: {e}")
 
-    # TODO: Explore improving this initilization prompt
     def classify_intent(self, query):
         """
         Classify user query intent using Cohere LLM for workflow routing.
@@ -229,7 +228,7 @@ Only reply with one of the following words: "database_lookup", "recommendation",
                 raise WorkflowError(f"Missing required state fields: {missing_fields}")
 
             # Generate user vector
-            SystemLogger.debug("Generating user vector from demographic data")
+            SystemLogger.debug("Generating user vector from user profile data")
             vector = self.neo4j.get_user_vector(
                 state["education"], state["age_group"], state["profession"], state["query"]
             )
@@ -248,8 +247,8 @@ Only reply with one of the following words: "database_lookup", "recommendation",
 
             state["user_vector"] = vector
 
-            # TODO: Demographics is misleading THROUGHOUT THE CODE BASE, from general understanding, demographics means ethinic, socioeconomic, etc., but here, demogrpahics is just education, age_group, and profession. We need to be clear on that.
-            state["demographics"] = {
+            # Store user profile data (education, age, profession - not traditional demographics)
+            state["user_profile"] = {
                 "education": state["education"],
                 "age_group": state["age_group"],
                 "profession": state["profession"]
@@ -257,7 +256,7 @@ Only reply with one of the following words: "database_lookup", "recommendation",
 
             SystemLogger.debug("User data collection completed successfully", {
                 'user_vector_dimension': len(vector) if vector else 0,
-                'demographics_fields': len(state["demographics"])
+                'user_profile_fields': len(state["user_profile"])
             })
 
             return state
@@ -401,7 +400,7 @@ Only reply with one of the following words: "database_lookup", "recommendation",
             state["response"] = result["response"]
             state["similar_user_courses"] = result["similar_user_courses"]
             state["user_vector"] = result["user_vector"]
-            state["demographics"] = user_context
+            state["user_profile"] = user_context
 
             SystemLogger.debug("Database course lookup completed successfully", {
                 'response_length': len(result["response"]) if result["response"] else 0,
@@ -513,12 +512,12 @@ Only reply with one of the following words: "database_lookup", "recommendation",
                 )
                 raise WorkflowError(f"Missing required state fields for storage: {missing_fields}")
 
-            demographics = state.get("demographics", {})
+            user_profile = state.get("user_profile", {})
 
-            # Extract demographics with fallback values
-            education = demographics.get("education", state.get("education", ""))
-            age_group = demographics.get("age_group", state.get("age_group", ""))
-            profession = demographics.get("profession", state.get("profession", ""))
+            # Extract user profile with fallback values
+            education = user_profile.get("education", state.get("education", ""))
+            age_group = user_profile.get("age_group", state.get("age_group", ""))
+            profession = user_profile.get("profession", state.get("profession", ""))
 
             SystemLogger.debug("Storing interaction in Neo4j database")
             self.neo4j.store_interaction(
@@ -848,7 +847,7 @@ Only reply with one of the following words: "database_lookup", "recommendation",
                 context={'user_id': user_id, 'query_preview': query[:50] if query else ''}
             )
             return (
-                "Encountered an unkown error processing your request.",
+                "Encountered an unknown error processing your request.",
                 None
             )
         except Exception as e:
@@ -857,4 +856,4 @@ Only reply with one of the following words: "database_lookup", "recommendation",
                 exception=e,
                 context={'user_id': user_id, 'query_preview': query[:50] if query else ''}
             )
-            return ("Encountered an unkown error processing your request.", None)
+            return ("Encountered an unknown error processing your request.", None)

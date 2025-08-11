@@ -3,8 +3,6 @@ from tavily import TavilyClient
 from utils.logger import SystemLogger
 from utils.exceptions import APIRequestError, APIKeyError
 
-#TODO: Better docstring and comments all around
-
 def web_search(query: str, api_key: str, top_k: int = 5) -> List[Dict[str, Any]]:
     """
     Perform web search using Tavily API for real-time market information.

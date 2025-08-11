@@ -7,7 +7,6 @@ from utils.exceptions import (
     WorkflowError, AgentExecutionError, ConfigurationError,
     UserInputValidationError
 )
-#TODO: Comments needed for all funtions here. FOLLOW NUMPY
 
 def process_recommendations(user_id, education, age_group, profession, user_query, uploaded_file):
     """
@@ -62,13 +61,13 @@ def process_recommendations(user_id, education, age_group, profession, user_quer
                 context={'user_id': repr(user_id)}
             )
             return (
-                gr.update(value="⚠️ User ID is required", visible=True),
+                gr.update(value="User ID is required", visible=True),
                 gr.update(visible=False),
                 gr.update(visible=False),
                 gr.update(visible=False)
             )
         
-        # Validate required demographic fields
+        # Validate required user profile fields
         required_fields = {
             'Education': education,
             'Age Group': age_group,
@@ -83,7 +82,7 @@ def process_recommendations(user_id, education, age_group, profession, user_quer
                 context={'user_id': user_id, 'missing_fields': missing_fields}
             )
             return (
-                gr.update(value=f"⚠️ Please fill in all required fields: {', '.join(missing_fields)}", visible=True),
+                gr.update(value=f"Please fill in all required fields: {', '.join(missing_fields)}", visible=True),
                 gr.update(visible=False),
                 gr.update(visible=False),
                 gr.update(visible=False)
@@ -100,7 +99,7 @@ def process_recommendations(user_id, education, age_group, profession, user_quer
                 context={'user_id': user_id}
             )
             return (
-                gr.update(value="⚠️ System initialization error. Please try again or contact support.", visible=True),
+                gr.update(value="System initialization error. Please try again or contact support.", visible=True),
                 gr.update(visible=False),
                 gr.update(visible=False),
                 gr.update(visible=False)
@@ -157,7 +156,7 @@ def process_recommendations(user_id, education, age_group, profession, user_quer
                 context={'user_id': user_id, 'query_preview': user_query[:50]}
             )
             return (
-                gr.update(value="⚠️ Processing error occurred. Please try again or contact support.", visible=True),
+                gr.update(value="Processing error occurred. Please try again or contact support.", visible=True),
                 gr.update(visible=False),
                 gr.update(visible=False),
                 gr.update(visible=False)
@@ -170,7 +169,7 @@ def process_recommendations(user_id, education, age_group, profession, user_quer
                 context={'user_id': user_id, 'similar_courses': similar_courses}
             )
             return (
-                gr.update(value="⚠️ No response generated. Please try rephrasing your query.", visible=True),
+                gr.update(value="No response generated. Please try rephrasing your query.", visible=True),
                 gr.update(visible=False),
                 gr.update(visible=False),
                 gr.update(visible=False)
@@ -183,7 +182,7 @@ def process_recommendations(user_id, education, age_group, profession, user_quer
                 'error': response['error']
             })
             return (
-                gr.update(value=f"⚠️ {response['error']}", visible=True),
+                gr.update(value=f"{response['error']}", visible=True),
                 gr.update(visible=False),
                 gr.update(visible=False),
                 gr.update(visible=False)
@@ -199,7 +198,7 @@ def process_recommendations(user_id, education, age_group, profession, user_quer
             })
             
             return (
-                gr.update(value="✅ **Recommendation Ready!**", visible=True),
+                gr.update(value="**Recommendation Ready!**", visible=True),
                 gr.update(visible=False),  # No separate content display needed
                 gr.update(value=f"{response}", visible=True, label="Recommendations"),
                 gr.update(value=f"{similar_courses}" if similar_courses else "", visible=bool(similar_courses))
@@ -211,7 +210,7 @@ def process_recommendations(user_id, education, age_group, profession, user_quer
             })
             
             return (
-                gr.update(value=f"⚠️ {response}", visible=True),
+                gr.update(value=f"{response}", visible=True),
                 gr.update(visible=False),
                 gr.update(visible=False),
                 gr.update(visible=False)
@@ -224,7 +223,7 @@ def process_recommendations(user_id, education, age_group, profession, user_quer
             context={'user_id': user_id}
         )
         return (
-            gr.update(value=f"⚠️ Input validation error: {validation_error}", visible=True),
+            gr.update(value=f"Input validation error: {validation_error}", visible=True),
             gr.update(visible=False),
             gr.update(visible=False),
             gr.update(visible=False)
@@ -236,7 +235,7 @@ def process_recommendations(user_id, education, age_group, profession, user_quer
             context={'user_id': user_id, 'query_preview': user_query[:50] if user_query else ''}
         )
         return (
-            gr.update(value="⚠️ An unexpected error occurred. Please try again or contact support.", visible=True),
+            gr.update(value="An unexpected error occurred. Please try again or contact support.", visible=True),
             gr.update(visible=False),
             gr.update(visible=False),
             gr.update(visible=False)
@@ -249,7 +248,7 @@ def create_gradio_interface():
     Create and configure Gradio web interface for course recommendation system.
     
     Builds a comprehensive web interface with input validation, error handling,
-    and user feedback mechanisms. Provides interactive forms for user demographics,
+    and user feedback mechanisms. Provides interactive forms for user profile data,
     query input, and file upload capabilities with real-time processing feedback.
     
     Returns
@@ -265,7 +264,7 @@ def create_gradio_interface():
     Notes
     -----
     Interface includes:
-    - User demographic inputs (education, age, profession)
+    - User profile inputs (education, age, profession)
     - Natural language query input with placeholder guidance
     - Optional resume/document upload (PDF/DOCX support)
     - Real-time processing status updates
@@ -373,12 +372,12 @@ def create_gradio_interface():
                             'validation_errors': validation_errors
                         })
                         return (
-                            gr.update(value=f"⚠️ Please fix the following: {', '.join(validation_errors)}", visible=True),
+                            gr.update(value=f"Please fix the following: {', '.join(validation_errors)}", visible=True),
                             *[gr.update(visible=False)] * 3
                         )
                     
                     return (
-                        gr.update(value="⏳ Processing your query...", visible=True),
+                        gr.update(value="Processing your query...", visible=True),
                         *[gr.update(visible=False)] * 3
                     )
                     
@@ -389,7 +388,7 @@ def create_gradio_interface():
                         context={'args_count': len(args) if args else 0}
                     )
                     return (
-                        gr.update(value="⚠️ Error preparing request. Please try again.", visible=True),
+                        gr.update(value="Error preparing request. Please try again.", visible=True),
                         *[gr.update(visible=False)] * 3
                     )
             

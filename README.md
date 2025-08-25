@@ -197,15 +197,38 @@ LANGCHAIN_PROJECT=course-recommendation-system
 
 ## Future Explorations
 
-### LLM Fine-Tuning and Low-Level Optimization
+### Prompt Engineering with LangSmith
 
-Once sufficient runtime data is collected, the system is positioned for advanced optimizations:
+The integrated LangSmith observability enables systematic prompt optimization through data-driven approaches:
 
-- **Prompt Engineering**: Data-driven A/B testing of agent prompts using real user interaction patterns
-- **Model Fine-Tuning**: Domain-specific fine-tuning on educational recommendation tasks using techniques like LoRA/QLoRA for memory-efficient training
-- **Weight-Level Modifications**: Exploration of model architecture modifications for improved intent classification and response quality
+- **A/B Testing Framework**: Use LangSmith's evaluation datasets to compare prompt variations across agent workflows, measuring recommendation quality and user satisfaction metrics
+- **Prompt Optimization Tools**: Leverage LangSmith's prompt engineering interface for real-time testing of intent classification, content generation, and collaborative filtering prompts
+- **Performance Monitoring**: Track prompt effectiveness through LangSmith dashboards, identifying patterns in successful versus failed recommendations to guide iterative improvements
+- **Multi-Agent Prompt Coordination**: Optimize prompt handoffs between DatabaseAgent, ContentAgent, and CollaborativeAgent using trace data to reduce context loss and improve workflow coherence
 
-Current prompts throughout the system (intent classification, content generation, collaborative filtering) represent baseline functional implementations. Production optimization requires runtime performance metrics and user feedback data to guide systematic improvements.
+### Model Fine-Tuning and Domain Adaptation
+
+With comprehensive tracing data from LangSmith, the system supports advanced model customization:
+
+- **Educational Domain Fine-Tuning**: Utilize collected user interaction patterns and successful recommendation traces to fine-tune models on course recommendation tasks using parameter-efficient methods like LoRA/QLoRA
+- **Evaluation-Driven Training**: Use LangSmith's evaluation frameworks to create training datasets from high-quality recommendation traces, ensuring fine-tuned models maintain or exceed baseline performance
+
+### Weight-Level Modifications and Architecture Optimization
+
+Deep system optimization using LangSmith trace analysis:
+
+- **Intent Classification Improvements**: Analyze misclassification patterns from LangSmith traces to guide architecture modifications for better query understanding and sub-agent routing
+- **Multi-Agent Communication**: Optimize embedding layers and attention mechanisms based on successful agent interaction patterns captured in traces
+- **State Representation Learning**: Use LangGraph state transition data to improve vector representations for user preferences and course similarities
+- **Performance-Driven Architecture**: Identify computational bottlenecks through LangSmith performance metrics to guide architectural decisions for latency-sensitive recommendation generation
+
+### MCP Application Integration
+
+Extend the current LangSmith MCP documentation server to include application-level integrations:
+
+- **Course Recommendation Tools**: Develop MCP servers providing direct access to course search, recommendation generation, and user interaction data for AI assistant integration
+- **Multi-Agent System Access**: Create MCP tools for DatabaseAgent, CollaborativeAgent, and ContentAgent workflows, enabling Claude's CLI to utilize the recommendation pipeline for efficeient, iterative development workflow structures
+- **Developer Productivity**: Implement MCP servers for system debugging, evaluation dataset creation, and performance monitoring to enable iterative development workflows
 
 ## License
 

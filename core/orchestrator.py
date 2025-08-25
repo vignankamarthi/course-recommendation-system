@@ -1,6 +1,14 @@
-# LangGraph Workflow
+# LangGraph Workflow with LangSmith Integration
+import os
 import cohere
 from langgraph.graph import StateGraph
+from langsmith import traceable
+try:
+    # Import wait_for_all_tracers to ensure traces are submitted before process exit
+    from langsmith import wait_for_all_tracers
+    LANGSMITH_WAIT_AVAILABLE = True
+except ImportError:
+    LANGSMITH_WAIT_AVAILABLE = False
 from core.config import cohere_api_key, COHERE_GENERATE_MODEL, get_neo4j_connection
 from agents.database_agent import DatabaseAgent
 from agents.collaborative_agent import CollaborativeAgent
@@ -10,6 +18,26 @@ from utils.exceptions import (
     DatabaseConnectionError, APIRequestError, AgentExecutionError, 
     ConfigurationError, WorkflowError
 )
+
+# LangSmith tracing is configured automatically via environment variables in config.py
+# All LangChain/LangGraph operations will be automatically traced
+
+
+def _finalize_langsmith_traces():
+    """Ensure all LangSmith traces are properly submitted before process termination."""
+    if LANGSMITH_WAIT_AVAILABLE:
+        try:
+            SystemLogger.debug("Finalizing LangSmith traces")
+            wait_for_all_tracers()
+            SystemLogger.debug("LangSmith traces finalized successfully")
+        except Exception as e:
+            SystemLogger.warning(
+                "Failed to finalize LangSmith traces - Some traces may be incomplete",
+                exception=e,
+                context={'wait_available': LANGSMITH_WAIT_AVAILABLE}
+            )
+    else:
+        SystemLogger.debug("LangSmith wait_for_all_tracers not available - traces may be incomplete")
 
 
 class RecommendationSystem:
@@ -50,6 +78,9 @@ class RecommendationSystem:
         SystemLogger.info("Initializing RecommendationSystem orchestrator")
 
         try:
+            # LangSmith tracing is already validated and configured in config.py
+            SystemLogger.debug("LangSmith tracing already configured via config.py")
+
             # Validate API key before proceeding
             if not cohere_api_key or not cohere_api_key.strip():
                 SystemLogger.error(
@@ -104,6 +135,7 @@ class RecommendationSystem:
             )
             raise AgentExecutionError(f"Failed to initialize RecommendationSystem: {e}")
 
+    @traceable(run_type="llm", name="intent_classification")
     def classify_intent(self, query):
         """
         Classify user query intent using Cohere LLM for workflow routing.
@@ -208,6 +240,7 @@ Only reply with one of the following words: "database_lookup", "recommendation",
             )
             raise APIRequestError(f"Intent classification failed: {e}")
 
+    @traceable(run_type="tool", name="collect_user_data")
     def collect_user_data(self, state):
         """Collect and vectorize user data from state."""
         SystemLogger.debug("Collecting user data for workflow", {
@@ -276,6 +309,7 @@ Only reply with one of the following words: "database_lookup", "recommendation",
             )
             raise WorkflowError(f"User data collection failed: {e}")
 
+    @traceable(run_type="agent", name="generate_collaborative_recommendations")
     def generate_recommendations(self, state):
         """Delegate to CollaborativeAgent for recommendations."""
         SystemLogger.debug("Generating collaborative recommendations", {
@@ -350,6 +384,7 @@ Only reply with one of the following words: "database_lookup", "recommendation",
             )
             raise WorkflowError(f"Recommendation generation failed: {e}")
 
+    @traceable(run_type="agent", name="run_database_lookup_agent")
     def run_database_agent(self, state):
         """Delegate to DatabaseAgent for course lookups."""
         SystemLogger.debug("Running DatabaseAgent for course lookup", {
@@ -425,6 +460,7 @@ Only reply with one of the following words: "database_lookup", "recommendation",
             )
             raise WorkflowError(f"Database agent execution failed: {e}")
 
+    @traceable(run_type="agent", name="run_content_analysis_agent")
     def run_content_agent(self, state):
         """Delegate to ContentAgent for content-based recommendations and market analysis."""
         SystemLogger.debug("Running ContentAgent for content analysis", {
@@ -493,6 +529,7 @@ Only reply with one of the following words: "database_lookup", "recommendation",
             )
             raise WorkflowError(f"Content agent execution failed: {e}")
 
+    @traceable(run_type="tool", name="store_workflow_result")
     def store_result(self, state):
         """Store interaction result in Neo4j database."""
         SystemLogger.debug("Storing workflow result in Neo4j", {
@@ -554,6 +591,7 @@ Only reply with one of the following words: "database_lookup", "recommendation",
             )
             raise WorkflowError(f"Result storage failed: {e}")
 
+    @traceable(run_type="chain", name="build_collaborative_workflow")
     def build_workflow(self):
         """Build collaborative recommendation workflow."""
         SystemLogger.debug("Building collaborative recommendation workflow")
@@ -580,6 +618,7 @@ Only reply with one of the following words: "database_lookup", "recommendation",
             )
             raise WorkflowError(f"Failed to build collaborative workflow: {e}")
 
+    @traceable(run_type="chain", name="build_database_lookup_workflow")
     def build_database_lookup_workflow(self):
         """Build database lookup workflow."""
         SystemLogger.debug("Building database lookup workflow")
@@ -606,6 +645,7 @@ Only reply with one of the following words: "database_lookup", "recommendation",
             )
             raise WorkflowError(f"Failed to build database lookup workflow: {e}")
 
+    @traceable(run_type="chain", name="build_content_analysis_workflow")
     def build_content_workflow(self):
         """Build content analysis workflow."""
         SystemLogger.debug("Building content analysis workflow")
@@ -632,6 +672,7 @@ Only reply with one of the following words: "database_lookup", "recommendation",
             )
             raise WorkflowError(f"Failed to build content workflow: {e}")
 
+    @traceable(run_type="chain", name="handle_user_query_workflow")
     def handle_user_query(self, user_id, education, age_group, profession, query, uploaded_files=None):
         """
         Main entry point for processing user queries through appropriate AI workflows.
@@ -857,3 +898,6 @@ Only reply with one of the following words: "database_lookup", "recommendation",
                 context={'user_id': user_id, 'query_preview': query[:50] if query else ''}
             )
             return ("Encountered an unknown error processing your request.", None)
+        finally:
+            # Ensure all traces are submitted to LangSmith before completing
+            _finalize_langsmith_traces()

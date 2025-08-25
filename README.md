@@ -173,6 +173,20 @@ except APIRequestError as e:
 
 **Available Exceptions**: `WorkflowError`, `AgentExecutionError`, `APIRequestError`, `DatabaseConnectionError`, `ConfigurationError`
 
+### LangSmith Observability
+
+The system integrates LangSmith for comprehensive tracing and debugging across all workflows:
+
+```python
+# Automatic tracing of agent workflows and LLM calls
+LANGSMITH_API_KEY=your-langsmith-api-key-here
+LANGCHAIN_PROJECT=course-recommendation-system
+```
+
+**Traced Components**: Intent classification, multi-agent workflows (Database, Collaborative, Content), LLM interactions, similarity searches, and state transitions.
+
+**Dashboard Access**: View traces at [smith.langchain.com](https://smith.langchain.com) for debugging agent decisions and performance monitoring.
+
 ## Architecture Details
 
 - **Orchestrator**: LangGraph-based workflow management with state persistence

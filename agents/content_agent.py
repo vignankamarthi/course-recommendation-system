@@ -7,6 +7,7 @@ import docx2txt
 from langchain.chains import RetrievalQA
 from langchain_community.vectorstores import FAISS
 from langchain_cohere import ChatCohere
+from langsmith import traceable
 
 from core.config import COURSE_VS, PAPERS_DIR, EMBED_MODEL, tavily_api_key, COHERE_CHAT_MODEL
 from tools.web_search_tool import web_search
@@ -116,6 +117,7 @@ class ContentAgent:
             )
             raise AgentExecutionError(f"Failed to initialize ContentAgent: {e}")
 
+    @traceable(run_type="llm", name="content_agent_query_classification")
     def classify_query(self, query: str) -> Dict[str, Any]:
         """Classify user query to determine content agent intents."""
         SystemLogger.debug("Classifying query for ContentAgent", {
@@ -223,6 +225,8 @@ class ContentAgent:
             )
             raise AgentExecutionError(f"Query classification failed: {fallback_error}")
 
+    @traceable(run_type="agent", name="content_agent_analysis")
+    @traceable(run_type="agent", name="content_agent_execution")
     def run(self, query: str, uploaded_files: List[str] = []) -> str:
         """
         Execute comprehensive content analysis and recommendation generation.
@@ -544,6 +548,7 @@ class ContentAgent:
             # Fallback: return sections joined with separators
             return "\n\n---\n\n".join(sections)
 
+    @traceable(run_type="chain", name="build_course_recommendations_section")
     def _build_course_section(self, resume: str, query: str) -> str:
         """Build course recommendations section with IMPEL courses and research papers."""
         SystemLogger.debug("Building course recommendations section", {

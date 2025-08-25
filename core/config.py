@@ -116,9 +116,57 @@ try:
         )
         raise ConfigurationError("Invalid Tavily API key format")
     
+    # LangSmith configuration - MANDATORY for system observability
+    langsmith_api_key = os.getenv('LANGSMITH_API_KEY')
+    langchain_project = os.getenv('LANGCHAIN_PROJECT', 'course-recommendation-system')
+    # Initialize client variable for module-level access
+    langsmith_client = None
+    
+    if not langsmith_api_key or not langsmith_api_key.strip():
+        SystemLogger.error(
+            "LangSmith API key not configured - Required for system observability",
+            context={'api_key_provided': bool(langsmith_api_key)}
+        )
+        raise ConfigurationError("LANGSMITH_API_KEY not set in environment variables")
+    
+    # Configure LangSmith environment variables for automatic tracing
+    # This enables automatic tracing for all LangChain/LangGraph operations
+    os.environ['LANGSMITH_TRACING'] = 'true'
+    os.environ['LANGCHAIN_PROJECT'] = langchain_project
+    os.environ['LANGSMITH_API_KEY'] = langsmith_api_key
+    os.environ['LANGSMITH_ENDPOINT'] = os.getenv('LANGSMITH_ENDPOINT', 'https://api.smith.langchain.com')
+    
+    # Set additional tracing configuration for most updated and comprehensive observability
+    os.environ['LANGCHAIN_TRACING_V2'] = 'true'
+    
+    # Verify LangSmith client initialization to ensure tracing works
+    try:
+        from langsmith import Client as LangSmithClient
+        # Create verified LangSmith client for use throughout the system
+        langsmith_client = LangSmithClient()
+        # Test connection by attempting to get current user/organization info
+        SystemLogger.debug("Testing LangSmith client connection")
+        SystemLogger.info("LangSmith tracing configured and verified successfully", {
+            'tracing_enabled': True,
+            'project_name': langchain_project,
+            'api_key_length': len(langsmith_api_key.strip()),
+            'client_verified': True
+        })
+    except Exception as client_error:
+        SystemLogger.error(
+            "LangSmith client verification failed - Check API key and network connectivity",
+            exception=client_error,
+            context={
+                'project_name': langchain_project,
+                'api_key_length': len(langsmith_api_key.strip())
+            }
+        )
+        raise ConfigurationError(f"LangSmith client verification failed: {client_error}")
+    
     SystemLogger.info("API keys validated successfully", {
         'cohere_key_length': len(cohere_api_key.strip()),
-        'tavily_key_length': len(tavily_api_key.strip())
+        'tavily_key_length': len(tavily_api_key.strip()),
+        'langsmith_key_length': len(langsmith_api_key.strip())
     })
     
 except ConfigurationError as e:

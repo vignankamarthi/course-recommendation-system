@@ -1,4 +1,5 @@
 import cohere
+from langsmith import traceable
 from core.config import (
     cohere_api_key, COHERE_GENERATE_MODEL,
     get_mysql_connection, get_neo4j_connection
@@ -86,6 +87,7 @@ class CollaborativeAgent:
             )
             raise AgentExecutionError(f"Failed to initialize CollaborativeAgent: {e}")
     
+    @traceable(run_type="tool", name="load_courses_for_collaborative_filtering")
     def _load_impel_courses_and_modules(self):
         """Load and format course data from MySQL for recommendations."""
         SystemLogger.debug("Loading and formatting IMPEL course data from MySQL")
@@ -168,6 +170,7 @@ class CollaborativeAgent:
             )
             raise DatabaseQueryError(f"Failed to load course data: {e}")
 
+    @traceable(run_type="agent", name="collaborative_agent_recommendations")
     def generate_recommendations(self, query: str, user_context: dict) -> dict:
         """
         Generate collaborative filtering recommendations based on similar users.
@@ -239,13 +242,18 @@ class CollaborativeAgent:
             raise AgentExecutionError(f"Failed to generate user vector: {e}")
         
         try:
-            # Find similar users
-            SystemLogger.debug("Finding similar users for collaborative filtering")
-            similar_users = self.neo4j.get_similar_users(user_vector)
+            # Find similar users with LangSmith tracing
+            @traceable(run_type="retriever", name="find_collaborative_similar_users")
+            def _find_similar_users(vector):
+                """Find similar users for collaborative filtering with LangSmith tracing."""
+                users = self.neo4j.get_similar_users(vector)
+                SystemLogger.debug("Similar users search completed", {
+                    'similar_users_count': len(users) if users else 0
+                })
+                return users
             
-            SystemLogger.debug("Similar users search completed", {
-                'similar_users_count': len(similar_users) if similar_users else 0
-            })
+            SystemLogger.debug("Finding similar users for collaborative filtering")
+            similar_users = _find_similar_users(user_vector)
             
         except (DatabaseConnectionError, DatabaseQueryError) as e:
             SystemLogger.error(
@@ -337,30 +345,28 @@ Format:
                 )
                 raise DatabaseQueryError("Course data not available")
             
-            # Generate recommendation using LLM
+            # Generate recommendation using LLM with LangSmith tracing
             SystemLogger.debug("Generating recommendations with Cohere")
-            llm_response = self.cohere_client.generate(
-                model=COHERE_GENERATE_MODEL,
-                prompt=prompt,
-                max_tokens=400
-            )
             
-            if not llm_response or not llm_response.generations or not llm_response.generations[0]:
-                SystemLogger.error(
-                    "Cohere API returned empty response for recommendations",
-                    context={'query': query, 'model': COHERE_GENERATE_MODEL}
+            @traceable(run_type="llm", name="cohere_collaborative_recommendations")
+            def _generate_collaborative_recommendations(recommendation_prompt: str, prefix: str) -> str:
+                """Generate collaborative recommendations using Cohere with LangSmith tracing."""
+                llm_response = self.cohere_client.generate(
+                    model=COHERE_GENERATE_MODEL,
+                    prompt=recommendation_prompt,
+                    max_tokens=400
                 )
-                raise APIRequestError("Cohere API returned empty response")
+                
+                if not llm_response or not llm_response.generations or not llm_response.generations[0]:
+                    raise APIRequestError("Cohere API returned empty response")
+                
+                generated_text = llm_response.generations[0].text.strip()
+                if not generated_text:
+                    raise APIRequestError("Cohere API returned empty text")
+                
+                return prefix + generated_text
             
-            generated_text = llm_response.generations[0].text.strip()
-            if not generated_text:
-                SystemLogger.error(
-                    "Cohere API returned empty text for recommendations",
-                    context={'query': query, 'response_structure': str(llm_response)[:200]}
-                )
-                raise APIRequestError("Cohere API returned empty text")
-            
-            response = response_prefix + generated_text
+            response = _generate_collaborative_recommendations(prompt, response_prefix)
             
             SystemLogger.debug("Recommendations generated successfully", {
                 'response_length': len(response),

@@ -1,4 +1,5 @@
 import cohere
+from langsmith import traceable
 from core.config import (
     cohere_api_key, COHERE_GENERATE_MODEL, 
     get_mysql_connection, get_neo4j_connection
@@ -85,6 +86,7 @@ class DatabaseAgent:
             )
             raise AgentExecutionError(f"Failed to initialize DatabaseAgent: {e}")
     
+    @traceable(run_type="tool", name="load_impel_courses_data")
     def _load_impel_courses_and_modules(self):
         """Load and format course data from MySQL for database queries."""
         SystemLogger.debug("Loading and formatting IMPEL course data from MySQL")
@@ -167,6 +169,7 @@ class DatabaseAgent:
             )
             raise DatabaseQueryError(f"Failed to load course data: {e}")
 
+    @traceable(run_type="agent", name="database_agent_lookup")
     def lookup_courses(self, query: str, user_context: dict) -> dict:
         """
         Handle direct course/module lookup queries.
@@ -247,13 +250,17 @@ class DatabaseAgent:
                 )
                 raise DatabaseQueryError("Course data not available")
             
-            # Generate database lookup response
+            # Generate database lookup response with LangSmith tracing
             SystemLogger.debug("Generating course lookup response with Cohere")
-            prompt = f"""
+            
+            @traceable(run_type="llm", name="cohere_course_lookup_generation")
+            def _generate_course_lookup_response(query_text: str, course_data: str) -> str:
+                """Generate course lookup response using Cohere with LangSmith tracing."""
+                prompt = f"""
 You are an educational assistant helping users explore a database of courses and modules from the IMPEL program.
 Here is the available data:
-{self.impel_data}
-User Query: "{query}"
+{course_data}
+User Query: "{query_text}"
 Task:
 1. If the user asks for all courses and modules, return all course names and their modules' names. 
 2. If asking for modules under a course, return only those.
@@ -262,26 +269,25 @@ Format:
 **Course: <Course>**
 - <Module>: <Summary>
 """
-            
-            response = self.cohere_client.generate(
-                model=COHERE_GENERATE_MODEL,
-                prompt=prompt,
-                max_tokens=2000,
-                temperature=0.3
-            )
-            
-            if not response or not response.generations or not response.generations[0]:
-                SystemLogger.error(
-                    "Cohere API returned empty response for course lookup",
-                    context={'query': query, 'model': COHERE_GENERATE_MODEL}
+                
+                response = self.cohere_client.generate(
+                    model=COHERE_GENERATE_MODEL,
+                    prompt=prompt,
+                    max_tokens=2000,
+                    temperature=0.3
                 )
-                raise APIRequestError("Cohere API returned empty response")
+                
+                if not response or not response.generations or not response.generations[0]:
+                    raise APIRequestError("Cohere API returned empty response")
+                    
+                return response.generations[0].text.strip()
             
-            generated_text = response.generations[0].text.strip()
+            generated_text = _generate_course_lookup_response(query, self.impel_data)
+            
             if not generated_text:
                 SystemLogger.error(
                     "Cohere API returned empty text for course lookup",
-                    context={'query': query, 'response_structure': str(response)[:200]}
+                    context={'query': query}
                 )
                 raise APIRequestError("Cohere API returned empty text")
             
@@ -306,32 +312,40 @@ Format:
             raise APIRequestError(f"Failed to generate course lookup response: {e}")
 
         try:
-            # Get similar users' courses
+            # Get similar users' courses with LangSmith tracing
             SystemLogger.debug("Finding similar users and their enrolled courses")
-            similar_users = self.neo4j.get_similar_users(vector)
-            similar_user_courses = ""
             
-            if similar_users:
-                SystemLogger.debug(f"Found similar users", {'count': len(similar_users)})
-                user_ids = [user["user_id"] for user in similar_users if user.get("user_id")]
+            @traceable(run_type="retriever", name="find_similar_users_and_courses")
+            def _find_similar_users_courses(user_vector):
+                """Find similar users and their enrolled courses with LangSmith tracing."""
+                similar_users = self.neo4j.get_similar_users(user_vector)
+                similar_courses_text = ""
                 
-                if user_ids:
-                    courses = self.neo4j.get_enrolled_courses_from_similar_users(user_ids)
-                    if courses:
-                        unique_courses = sorted(set(courses))
-                        similar_user_courses = "\n".join(f"- {c}" for c in unique_courses)
-                        SystemLogger.debug(f"Found enrolled courses from similar users", {
-                            'unique_courses': len(unique_courses)
-                        })
+                if similar_users:
+                    SystemLogger.debug(f"Found similar users", {'count': len(similar_users)})
+                    user_ids = [user["user_id"] for user in similar_users if user.get("user_id")]
+                    
+                    if user_ids:
+                        courses = self.neo4j.get_enrolled_courses_from_similar_users(user_ids)
+                        if courses:
+                            unique_courses = sorted(set(courses))
+                            similar_courses_text = "\n".join(f"- {c}" for c in unique_courses)
+                            SystemLogger.debug(f"Found enrolled courses from similar users", {
+                                'unique_courses': len(unique_courses)
+                            })
+                        else:
+                            similar_courses_text = "No similar users who enrolled for IMPEL courses found."
+                            SystemLogger.debug("Similar users found but no enrolled courses")
                     else:
-                        similar_user_courses = "No similar users who enrolled for IMPEL courses found."
-                        SystemLogger.debug("Similar users found but no enrolled courses")
+                        similar_courses_text = "No similar users who enrolled for IMPEL courses found."
+                        SystemLogger.debug("Similar users found but no valid user IDs")
                 else:
-                    similar_user_courses = "No similar users who enrolled for IMPEL courses found."
-                    SystemLogger.debug("Similar users found but no valid user IDs")
-            else:
-                similar_user_courses = "No similar users who enrolled for IMPEL courses found."
-                SystemLogger.debug("No similar users found")
+                    similar_courses_text = "No similar users who enrolled for IMPEL courses found."
+                    SystemLogger.debug("No similar users found")
+                    
+                return similar_courses_text
+            
+            similar_user_courses = _find_similar_users_courses(vector)
                 
         except (DatabaseConnectionError, DatabaseQueryError) as e:
             SystemLogger.error(

@@ -24,5 +24,8 @@ logs/
 .DS_Store
 Thumbs.db
 
+# Claude
+.claude/
+
 # Project specific
 # Add any project-specific files here

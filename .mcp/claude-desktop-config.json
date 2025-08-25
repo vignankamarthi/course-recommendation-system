@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "langsmith": {
+      "command": "python",
+      "args": ["-m", "langsmith_mcp_server"],
+      "env": {
+        "LANGSMITH_API_KEY": "copy-your-actual-api-key-here"
+      }
+    }
+  }
+}

@@ -9,6 +9,7 @@ langchain-community
 langchain-huggingface
 langchain-openai
 langgraph
+langsmith-mcp-server
 mysql-connector-python
 neo4j
 networkx

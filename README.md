@@ -128,6 +128,14 @@ Once running, you can access these web-based services:
 
 ## Developer Tools
 
+### LangSmith MCP Integration
+
+The project includes Model Context Protocol integration for LangSmith development tools. This provides direct access to dataset management, evaluation testing, and debugging traces through Claude Desktop during development.
+
+**Quick Setup**: Add `LANGSMITH_API_KEY` to your `.env` file and configure Claude Desktop with the MCP server settings.
+
+**Detailed Documentation**: See [.mcp/README.md](.mcp/README.md) for complete setup instructions, available tools, and usage examples.
+
 ### Logging System
 
 The system implements a comprehensive logging structure via `SystemLogger`:
